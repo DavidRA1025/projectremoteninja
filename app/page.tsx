@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { OrgData, Member, Shift, SelectionRef, CaseTypes, ManagerGroup } from "@/lib/types";
-import { loadOrg, saveOrg, generateId, tH, hToStr, classifyShift, ini, makeShifts, emptyTrained, nextColor } from "@/lib/store";
-import { SLOT_SIZE, NUM_SLOTS, SLOT_LABELS, CASE_TYPES, DAY_NAMES } from "@/lib/constants";
+import { OrgData, Member, Shift, SelectionRef, CaseTypes, ManagerGroup, CaseTypeConfig } from "@/lib/types";
+import { loadOrg, saveOrg, loadCaseTypes, saveCaseTypes, generateId, tH, hToStr, classifyShift, ini, makeShifts, emptyTrained, nextColor } from "@/lib/store";
+import { SLOT_SIZE, NUM_SLOTS, SLOT_LABELS, DAY_NAMES } from "@/lib/constants";
 
 
 function getWeekDays(baseDate: Date) {
@@ -37,6 +37,7 @@ function formatWeekRange(days: ReturnType<typeof getWeekDays>) {
 export default function SchedulePage() {
   const [org, setOrg] = useState<OrgData>([]);
   const [mounted, setMounted] = useState(false);
+  const [caseTypes, setCaseTypes] = useState<CaseTypeConfig[]>([]);
   const [dark, setDark] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [selected, setSelected] = useState<SelectionRef[]>([]);
@@ -46,9 +47,11 @@ export default function SchedulePage() {
   const [bulkModal, setBulkModal] = useState(false);
   const [addModal, setAddModal] = useState(false);
   const [addGroupModal, setAddGroupModal] = useState(false);
+  const [settingsModal, setSettingsModal] = useState(false);
 
-  useEffect(() => { setOrg(loadOrg()); setMounted(true); }, []);
+  useEffect(() => { setOrg(loadOrg()); setCaseTypes(loadCaseTypes()); setMounted(true); }, []);
   useEffect(() => { if (mounted) saveOrg(org); }, [org, mounted]);
+  useEffect(() => { if (mounted) saveCaseTypes(caseTypes); }, [caseTypes, mounted]);
   useEffect(() => { document.documentElement.classList.toggle("dark", dark); }, [dark]);
 
   const showToast = useCallback((msg: string) => {
@@ -111,7 +114,7 @@ export default function SchedulePage() {
   };
 
   const addGroup = (name: string, login: string) => {
-    setOrg((prev) => [...prev, { id: generateId(), collapsed: false, mgr: { id: generateId(), login, name, note: "", color: nextColor(prev.length), trained: emptyTrained(), shifts: makeShifts("08:00", "17:00", "day", [5, 6]), off: [5, 6] }, members: [] }]);
+    setOrg((prev) => [...prev, { id: generateId(), collapsed: false, mgr: { id: generateId(), login, name, note: "", color: nextColor(prev.length), trained: emptyTrained(caseTypes), shifts: makeShifts("08:00", "17:00", "day", [5, 6]), off: [5, 6] }, members: [] }]);
     showToast("Added team: " + name);
   };
 
@@ -174,8 +177,9 @@ export default function SchedulePage() {
           <span className="text-sm font-bold">Schedule <span className="text-indigo-500">Live</span></span>
           <span className="inline-flex items-center gap-1 text-[9px] font-bold text-green-500 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 px-2 py-0.5 rounded-full ml-2"><span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />LIVE</span>
         </div>
-        <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-1.5">
           <button className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-xs" onClick={() => setDark(!dark)}><i className={"fa-solid fa-" + (dark ? "sun" : "moon")} /></button>
+          <button className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-xs font-semibold flex items-center gap-1 hover:border-indigo-400 hover:text-indigo-500 transition" onClick={() => setSettingsModal(true)}><i className="fa-solid fa-gear" /> Case Types</button>
           <button className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-xs font-semibold flex items-center gap-1" onClick={() => setAddGroupModal(true)}><i className="fa-solid fa-sitemap" /> Add Team</button>
           <button className="px-2.5 py-1.5 rounded-lg bg-indigo-500 text-white text-xs font-semibold flex items-center gap-1" onClick={() => setAddModal(true)}><i className="fa-solid fa-plus" /> Add Member</button>
         </div>
@@ -196,7 +200,7 @@ export default function SchedulePage() {
         <div className="flex items-center gap-1.5 mb-3 flex-wrap p-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl">
           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mr-1"><i className="fa-solid fa-filter mr-1" />Case</span>
           <button className={"px-3 py-1 rounded-full text-[10px] font-bold border " + (activeFilter === null ? "bg-indigo-500 text-white border-indigo-500" : "border-slate-200 dark:border-slate-600 text-slate-500")} onClick={() => setActiveFilter(null)}>All</button>
-          {CASE_TYPES.map((ct) => {
+          {caseTypes.map((ct) => {
             const count = ap.filter((m) => m.trained[ct.key]).length;
             return <button key={ct.key} className={"px-3 py-1 rounded-full text-[10px] font-bold border " + (activeFilter === ct.key ? "text-white border-transparent" : "border-slate-200 dark:border-slate-600 text-slate-500")} style={activeFilter === ct.key ? { background: ct.color } : {}} onClick={() => setActiveFilter(activeFilter === ct.key ? null : ct.key)}>{ct.label} <span className="opacity-70 font-mono">{count}</span></button>;
           })}
@@ -265,7 +269,7 @@ export default function SchedulePage() {
                                 <div className={"w-[26px] h-[26px] rounded-full flex items-center justify-center text-[9px] font-bold text-white shrink-0 " + (isMgr ? "border-2 border-indigo-400" : "")} style={{ background: m.color }}>{ini(m.login)}</div>
                                 <div className="min-w-0">
                                   <div className={"text-[11px] font-semibold truncate " + (isMgr ? "text-indigo-500" : "")}>{m.name || m.login}</div>
-                                  <div className="flex gap-0.5 flex-wrap mt-0.5">{CASE_TYPES.filter((ct) => m.trained[ct.key]).map((ct) => (<span key={ct.key} className="text-[7px] font-bold px-1 rounded text-white" style={{ background: ct.color }}>{ct.label}</span>))}</div>
+                                  <div className="flex gap-0.5 flex-wrap mt-0.5">{caseTypes.filter((ct) => m.trained[ct.key]).map((ct) => (<span key={ct.key} className="text-[7px] font-bold px-1 rounded text-white" style={{ background: ct.color }}>{ct.label}</span>))}</div>
                                 </div>
                                 {!isMgr && <button className="ml-auto text-[9px] text-red-300 hover:text-red-500 opacity-0 group-hover:opacity-100 px-1" onClick={() => { if (confirm("Remove " + m.login + "?")) removeMember(gi, miVal); }}><i className="fa-solid fa-xmark" /></button>}
                               </div>
@@ -324,8 +328,9 @@ export default function SchedulePage() {
       {/* MODALS */}
       {editModal && <EditModal org={org} m={editModal} days={DAYS} onSave={(sh) => { updateShift(editModal.gi, editModal.mi, editModal.di, editModal.isMgr, sh); setEditModal(null); showToast("Updated!"); }} onClose={() => setEditModal(null)} />}
       {bulkModal && <BulkModal sel={selected} org={org} onApply={bulkApply} onClose={() => setBulkModal(false)} />}
-      {addModal && <AddModal org={org} onAdd={addMember} onClose={() => setAddModal(false)} />}
+      {addModal && <AddModal org={org} caseTypes={caseTypes} onAdd={addMember} onClose={() => setAddModal(false)} />}
       {addGroupModal && <AddGroupModal onAdd={addGroup} onClose={() => setAddGroupModal(false)} />}
+      {settingsModal && <SettingsModal caseTypes={caseTypes} onSave={(ct) => { setCaseTypes(ct); setSettingsModal(false); showToast("Case types updated!"); }} onClose={() => setSettingsModal(false)} />}
       {toast && <div className="fixed bottom-4 right-4 bg-slate-900 text-white px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 shadow-xl z-[300]"><i className="fa-solid fa-circle-check" />{toast}</div>}
     </div>
   );
@@ -364,23 +369,23 @@ function BulkModal({ sel, org, onApply, onClose }: any) {
     <Lbl>Shift</Lbl><div className="flex gap-1.5"><input type="time" value={start} onChange={(e) => setStart(e.target.value)} className="flex-1 p-1.5 border border-slate-200 dark:border-slate-600 rounded-lg text-sm bg-slate-50 dark:bg-slate-700" step={1800} /><input type="time" value={end} onChange={(e) => setEnd(e.target.value)} className="flex-1 p-1.5 border border-slate-200 dark:border-slate-600 rounded-lg text-sm bg-slate-50 dark:bg-slate-700" step={1800} /></div>
     <Lbl>Type</Lbl><select value={type} onChange={(e) => setType(e.target.value as Shift["t"])} className="w-full p-1.5 border border-slate-200 dark:border-slate-600 rounded-lg text-sm bg-slate-50 dark:bg-slate-700"><option value="morning">Morning</option><option value="day">Day</option><option value="swing">Swing</option><option value="night">Night</option></select>
     <Lbl>Days Off</Lbl><div className="flex gap-1 mt-1">{["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map((d, i) => { const di = [6,0,1,2,3,4,5][i]; return <button key={d} className={"px-2 py-1 rounded-md text-[10px] font-semibold border " + (offDays.includes(di) ? "bg-indigo-500 text-white border-indigo-500" : "border-slate-200 dark:border-slate-600 text-slate-500")} onClick={() => setOffDays((p) => p.includes(di) ? p.filter((x) => x !== di) : [...p, di])}>{d}</button>; })}</div>
-    <Lbl>Case Types</Lbl><div className="flex gap-1 mt-1 flex-wrap">{CASE_TYPES.map((ct) => <button key={ct.key} className={"px-2.5 py-1 rounded-lg text-[10px] font-bold border " + (trained[ct.key] ? "text-white border-transparent" : "border-slate-200 dark:border-slate-600 text-slate-500")} style={trained[ct.key] ? { background: ct.color } : {}} onClick={() => setTrained((p) => ({ ...p, [ct.key]: !p[ct.key] }))}>{ct.label}</button>)}</div>
+    <Lbl>Case Types</Lbl><div className="flex gap-1 mt-1 flex-wrap">{caseTypes.map((ct) => <button key={ct.key} className={"px-2.5 py-1 rounded-lg text-[10px] font-bold border " + (trained[ct.key] ? "text-white border-transparent" : "border-slate-200 dark:border-slate-600 text-slate-500")} style={trained[ct.key] ? { background: ct.color } : {}} onClick={() => setTrained((p) => ({ ...p, [ct.key]: !p[ct.key] }))}>{ct.label}</button>)}</div>
     <p className="text-[10px] text-amber-500 mt-2"><i className="fa-solid fa-triangle-exclamation mr-1" />Overwrites all selected</p>
     <div className="flex gap-1.5 mt-3 justify-end"><button className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold" onClick={onClose}>Cancel</button><button className="px-3 py-1.5 rounded-lg bg-indigo-500 text-white text-xs font-semibold" onClick={() => { onApply(sel, start, end, type, offDays, trained); onClose(); }}><i className="fa-solid fa-check-double mr-1" />Apply</button></div>
   </Overlay>;
 }
 
-function AddModal({ org, onAdd, onClose }: any) {
+function AddModal({ org, caseTypes, onAdd, onClose }: any) {
   const [login, setLogin] = useState(""); const [gi, setGi] = useState(0);
   const [start, setStart] = useState("08:00"); const [end, setEnd] = useState("17:00");
   const [offDays, setOffDays] = useState<number[]>([5, 6]);
-  const [trained, setTrained] = useState<CaseTypes>(emptyTrained());
+  const [trained, setTrained] = useState<CaseTypes>(emptyTrained(caseTypes));
   return <Overlay onClose={onClose}><h3 className="text-sm font-bold mb-3"><i className="fa-solid fa-user-plus text-indigo-500 mr-1.5" />Add Member</h3>
     <Lbl>Login / Name</Lbl><input type="text" value={login} onChange={(e) => setLogin(e.target.value)} placeholder="e.g. jdoe" className="w-full p-1.5 border border-slate-200 dark:border-slate-600 rounded-lg text-sm bg-slate-50 dark:bg-slate-700" />
     <Lbl>Manager</Lbl><select value={gi} onChange={(e) => setGi(Number(e.target.value))} className="w-full p-1.5 border border-slate-200 dark:border-slate-600 rounded-lg text-sm bg-slate-50 dark:bg-slate-700">{org.map((g: any, i: number) => <option key={i} value={i}>{g.mgr.name}</option>)}</select>
     <Lbl>Shift</Lbl><div className="flex gap-1.5"><input type="time" value={start} onChange={(e) => setStart(e.target.value)} className="flex-1 p-1.5 border border-slate-200 dark:border-slate-600 rounded-lg text-sm bg-slate-50 dark:bg-slate-700" step={1800} /><input type="time" value={end} onChange={(e) => setEnd(e.target.value)} className="flex-1 p-1.5 border border-slate-200 dark:border-slate-600 rounded-lg text-sm bg-slate-50 dark:bg-slate-700" step={1800} /></div>
     <Lbl>Days Off</Lbl><div className="flex gap-1 mt-1">{["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map((d, i) => { const di = [6,0,1,2,3,4,5][i]; return <button key={d} className={"px-2 py-1 rounded-md text-[10px] font-semibold border " + (offDays.includes(di) ? "bg-indigo-500 text-white border-indigo-500" : "border-slate-200 dark:border-slate-600 text-slate-500")} onClick={() => setOffDays((p) => p.includes(di) ? p.filter((x) => x !== di) : [...p, di])}>{d}</button>; })}</div>
-    <Lbl>Trained On</Lbl><div className="flex gap-1 mt-1 flex-wrap">{CASE_TYPES.map((ct) => <button key={ct.key} className={"px-2.5 py-1 rounded-lg text-[10px] font-bold border " + (trained[ct.key] ? "text-white border-transparent" : "border-slate-200 dark:border-slate-600 text-slate-500")} style={trained[ct.key] ? { background: ct.color } : {}} onClick={() => setTrained((p) => ({ ...p, [ct.key]: !p[ct.key] }))}>{ct.label}</button>)}</div>
+    <Lbl>Trained On</Lbl><div className="flex gap-1 mt-1 flex-wrap">{caseTypes.map((ct) => <button key={ct.key} className={"px-2.5 py-1 rounded-lg text-[10px] font-bold border " + (trained[ct.key] ? "text-white border-transparent" : "border-slate-200 dark:border-slate-600 text-slate-500")} style={trained[ct.key] ? { background: ct.color } : {}} onClick={() => setTrained((p) => ({ ...p, [ct.key]: !p[ct.key] }))}>{ct.label}</button>)}</div>
     <div className="flex gap-1.5 mt-3.5 justify-end"><button className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold" onClick={onClose}>Cancel</button><button className="px-3 py-1.5 rounded-lg bg-indigo-500 text-white text-xs font-semibold" onClick={() => { if (!login.trim()) return; onAdd(gi, login.trim(), start, end, offDays, trained); onClose(); }}><i className="fa-solid fa-plus mr-1" />Add</button></div>
   </Overlay>;
 }
@@ -392,4 +397,54 @@ function AddGroupModal({ onAdd, onClose }: any) {
     <Lbl>Login</Lbl><input type="text" value={login} onChange={(e) => setLogin(e.target.value)} placeholder="e.g. jsmith" className="w-full p-1.5 border border-slate-200 dark:border-slate-600 rounded-lg text-sm bg-slate-50 dark:bg-slate-700" />
     <div className="flex gap-1.5 mt-3.5 justify-end"><button className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold" onClick={onClose}>Cancel</button><button className="px-3 py-1.5 rounded-lg bg-indigo-500 text-white text-xs font-semibold" onClick={() => { if (!name.trim()) return; onAdd(name.trim(), login.trim() || name.trim().toLowerCase().replace(/\s/g, "")); onClose(); }}><i className="fa-solid fa-plus mr-1" />Create</button></div>
   </Overlay>;
+}
+
+
+
+const PRESET_COLORS = ["#ef4444","#f97316","#f59e0b","#22c55e","#06b6d4","#3b82f6","#8b5cf6","#ec4899","#14b8a6","#64748b"];
+
+function SettingsModal({ caseTypes, onSave, onClose }: { caseTypes: CaseTypeConfig[]; onSave: (ct: CaseTypeConfig[]) => void; onClose: () => void }) {
+  const [types, setTypes] = useState<CaseTypeConfig[]>(caseTypes.map(ct => ({...ct})));
+  const [newLabel, setNewLabel] = useState("");
+  const [newColor, setNewColor] = useState("#3b82f6");
+
+  const addType = () => {
+    if (!newLabel.trim()) return;
+    const key = newLabel.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_");
+    if (types.some(t => t.key === key)) return;
+    setTypes([...types, { key, label: newLabel.trim(), color: newColor }]);
+    setNewLabel("");
+  };
+  const removeType = (key: string) => setTypes(types.filter(t => t.key !== key));
+  const updateLabel = (key: string, label: string) => setTypes(types.map(t => t.key === key ? {...t, label} : t));
+  const cycleColor = (key: string, current: string) => { const i = PRESET_COLORS.indexOf(current); setTypes(types.map(t => t.key === key ? {...t, color: PRESET_COLORS[(i+1)%PRESET_COLORS.length]} : t)); };
+
+  return (
+    <Overlay onClose={onClose}>
+      <h3 className="text-sm font-bold mb-3 flex items-center gap-1.5"><i className="fa-solid fa-gear text-indigo-500" /> Manage Case Types</h3>
+      <p className="text-[10px] text-slate-400 mb-3">Add, rename, recolor, or remove case types. Click the color circle to change it.</p>
+      <div className="space-y-2 mb-4">
+        {types.map((ct) => (
+          <div key={ct.key} className="flex items-center gap-2 p-2 bg-slate-50 dark:bg-slate-700 rounded-lg">
+            <div className="w-6 h-6 rounded-full cursor-pointer border-2 border-white shadow-sm shrink-0" style={{ background: ct.color }} onClick={() => cycleColor(ct.key, ct.color)} title="Click to cycle color" />
+            <input type="text" value={ct.label} onChange={(e) => updateLabel(ct.key, e.target.value)} className="flex-1 px-2 py-1 border border-slate-200 dark:border-slate-600 rounded-md text-xs bg-white dark:bg-slate-800 outline-none focus:border-indigo-400" />
+            <span className="text-[9px] text-slate-400 font-mono">{ct.key}</span>
+            <button className="text-red-400 hover:text-red-500 text-xs px-1" onClick={() => removeType(ct.key)} title="Remove"><i className="fa-solid fa-trash" /></button>
+          </div>
+        ))}
+      </div>
+      <div className="border-t border-slate-200 dark:border-slate-700 pt-3">
+        <Lbl>Add New Case Type</Lbl>
+        <div className="flex gap-2 items-center mt-1">
+          <div className="w-6 h-6 rounded-full cursor-pointer border-2 border-white shadow-sm shrink-0" style={{ background: newColor }} onClick={() => { const i = PRESET_COLORS.indexOf(newColor); setNewColor(PRESET_COLORS[(i+1)%PRESET_COLORS.length]); }} title="Click to cycle color" />
+          <input type="text" value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder="e.g. Quality Audit" className="flex-1 px-2 py-1.5 border border-slate-200 dark:border-slate-600 rounded-md text-xs bg-white dark:bg-slate-800 outline-none focus:border-indigo-400" onKeyDown={(e) => e.key === "Enter" && addType()} />
+          <button className="px-3 py-1.5 rounded-lg bg-indigo-500 text-white text-xs font-semibold shrink-0" onClick={addType}><i className="fa-solid fa-plus mr-1" />Add</button>
+        </div>
+      </div>
+      <div className="flex gap-1.5 mt-4 justify-end">
+        <button className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-xs font-semibold" onClick={onClose}>Cancel</button>
+        <button className="px-3 py-1.5 rounded-lg bg-indigo-500 text-white text-xs font-semibold" onClick={() => onSave(types)}><i className="fa-solid fa-check mr-1" />Save Changes</button>
+      </div>
+    </Overlay>
+  );
 }

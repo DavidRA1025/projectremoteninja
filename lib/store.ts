@@ -1,5 +1,5 @@
-import { OrgData, Member, Shift, CaseTypes } from "./types";
-import { MEMBER_COLORS } from "./constants";
+import { OrgData, Member, Shift, CaseTypes, CaseTypeConfig } from "./types";
+import { MEMBER_COLORS, DEFAULT_CASE_TYPES } from "./constants";
 
 const STORAGE_KEY = "schedule-live-data";
 const CASE_TYPES_KEY = "schedule-live-case-types";
@@ -47,15 +47,10 @@ export function makeShifts(
   return shifts;
 }
 
-export function emptyTrained(): CaseTypes {
-  return {
-    cn_cfp: false,
-    row_cfp: false,
-    rev_sp: false,
-    kibana: false,
-    paragon: false,
-    arvt: false,
-  };
+export function emptyTrained(caseTypes: CaseTypeConfig[]): CaseTypes {
+  const t: CaseTypes = {} as CaseTypes;
+  caseTypes.forEach((ct) => { t[ct.key] = false; });
+  return t;
 }
 
 export function nextColor(existingCount: number): string {
@@ -80,18 +75,18 @@ export function saveOrg(data: OrgData): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
 
-export function loadCustomCaseTypes(): string[] {
-  if (typeof window === "undefined") return [];
+export function loadCaseTypes(): CaseTypeConfig[] {
+  if (typeof window === "undefined") return DEFAULT_CASE_TYPES;
   const raw = localStorage.getItem(CASE_TYPES_KEY);
-  if (!raw) return [];
+  if (!raw) return DEFAULT_CASE_TYPES;
   try {
-    return JSON.parse(raw);
+    return JSON.parse(raw) as CaseTypeConfig[];
   } catch {
-    return [];
+    return DEFAULT_CASE_TYPES;
   }
 }
 
-export function saveCustomCaseTypes(types: string[]): void {
+export function saveCaseTypes(types: CaseTypeConfig[]): void {
   if (typeof window === "undefined") return;
   localStorage.setItem(CASE_TYPES_KEY, JSON.stringify(types));
 }
@@ -110,14 +105,7 @@ function getDefaultData(): OrgData {
         name: "Manager A",
         note: "",
         color: "#6366f1",
-        trained: {
-          cn_cfp: true,
-          row_cfp: true,
-          rev_sp: true,
-          kibana: true,
-          paragon: true,
-          arvt: false,
-        },
+        trained: {},
         shifts: makeShifts("08:00", "17:00", "day", [5, 6]),
         off: [5, 6],
       },
@@ -128,14 +116,7 @@ function getDefaultData(): OrgData {
           name: "Agent 1",
           note: "",
           color: "#3b82f6",
-          trained: {
-            cn_cfp: true,
-            row_cfp: true,
-            rev_sp: true,
-            kibana: true,
-            paragon: true,
-            arvt: false,
-          },
+          trained: {},
           shifts: makeShifts("06:00", "14:00", "morning", [4, 5]),
           off: [4, 5],
         },
@@ -145,14 +126,7 @@ function getDefaultData(): OrgData {
           name: "Agent 2",
           note: "",
           color: "#8b5cf6",
-          trained: {
-            cn_cfp: true,
-            row_cfp: true,
-            rev_sp: true,
-            kibana: true,
-            paragon: true,
-            arvt: false,
-          },
+          trained: {},
           shifts: makeShifts("14:00", "22:00", "swing", [5, 6]),
           off: [5, 6],
         },
