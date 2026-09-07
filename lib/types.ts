@@ -5,12 +5,6 @@ export interface Shift {
 }
 
 export interface CaseTypes {
-  cn_cfp: boolean;
-  row_cfp: boolean;
-  rev_sp: boolean;
-  kibana: boolean;
-  paragon: boolean;
-  arvt: boolean;
   [key: string]: boolean;
 }
 

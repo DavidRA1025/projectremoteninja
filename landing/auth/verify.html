@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Verify Email — Remote Ninja</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="/auth/auth-styles.css">
+</head>
+<body>
+
+<a href="/" class="auth-logo">
+  <div class="icon">SL</div>
+  <div class="name">Remote <span>Ninja</span></div>
+</a>
+
+<div class="auth-card" style="text-align:center">
+  <div style="width:56px;height:56px;border-radius:16px;background:var(--accent-bg);display:flex;align-items:center;justify-content:center;margin:0 auto 16px">
+    <i class="fa-solid fa-envelope-open-text" style="font-size:24px;color:var(--accent)"></i>
+  </div>
+  <h1>Check Your Email</h1>
+  <p class="subtitle" id="email-msg">We sent a 6-digit code to your email. Enter it below to verify your account.</p>
+
+  <div id="alert-box"></div>
+
+  <form id="verify-form" onsubmit="return handleVerify(event)">
+    <div class="code-input" id="code-inputs">
+      <input type="text" maxlength="1" pattern="[0-9]" inputmode="numeric" autofocus>
+      <input type="text" maxlength="1" pattern="[0-9]" inputmode="numeric">
+      <input type="text" maxlength="1" pattern="[0-9]" inputmode="numeric">
+      <input type="text" maxlength="1" pattern="[0-9]" inputmode="numeric">
+      <input type="text" maxlength="1" pattern="[0-9]" inputmode="numeric">
+      <input type="text" maxlength="1" pattern="[0-9]" inputmode="numeric">
+    </div>
+    <button type="submit" class="btn btn-primary" id="verify-btn">
+      <span id="verify-text">Verify Email</span>
+      <span id="verify-spinner" style="display:none"><span class="spinner"></span></span>
+    </button>
+  </form>
+
+  <div style="margin-top:16px">
+    <button onclick="resendCode()" class="btn btn-secondary" id="resend-btn" style="font-size:13px">
+      <i class="fa-solid fa-rotate-right"></i> Resend Code
+    </button>
+  </div>
+
+  <div class="link-row" style="margin-top:16px">
+    <a href="/">Back to sign in</a>
+  </div>
+</div>
+
+<script src="/auth/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/amazon-cognito-identity-js@6/dist/amazon-cognito-identity.min.js"></script>
+<script>
+
+var email = new URLSearchParams(window.location.search).get('email') || '';
+if (email) {
+  document.getElementById('email-msg').textContent = 'We sent a 6-digit code to ' + email + '. Enter it below.';
+}
+
+// Auto-focus next input on code entry
+var inputs = document.querySelectorAll('.code-input input');
+inputs.forEach(function(input, i) {
+  input.addEventListener('input', function() {
+    if (this.value.length === 1 && i < inputs.length - 1) inputs[i + 1].focus();
+  });
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Backspace' && !this.value && i > 0) inputs[i - 1].focus();
+  });
+  input.addEventListener('paste', function(e) {
+    var paste = (e.clipboardData || window.clipboardData).getData('text').trim();
+    if (paste.length === 6 && /^\d{6}$/.test(paste)) {
+      e.preventDefault();
+      paste.split('').forEach(function(ch, j) { if (inputs[j]) inputs[j].value = ch; });
+      inputs[5].focus();
+    }
+  });
+});
+
+function getCode() {
+  return Array.from(inputs).map(function(i) { return i.value; }).join('');
+}
+
+function showAlert(msg, type) {
+  document.getElementById('alert-box').innerHTML = '<div class="alert alert-' + type + '"><i class="fa-solid fa-' + (type === 'success' ? 'check-circle' : 'circle-exclamation') + '"></i>' + msg + '</div>';
+}
+
+function setLoading(loading) {
+  document.getElementById('verify-text').style.display = loading ? 'none' : '';
+  document.getElementById('verify-spinner').style.display = loading ? '' : 'none';
+  document.getElementById('verify-btn').disabled = loading;
+}
+
+function handleVerify(e) {
+  e.preventDefault();
+  var code = getCode();
+  if (code.length !== 6) { showAlert('Please enter the full 6-digit code.', 'error'); return false; }
+  if (!email) { showAlert('Email not found. Please contact your admin.', 'error'); return false; }
+
+  setLoading(true);
+  document.getElementById('alert-box').innerHTML = '';
+
+  var poolData = { UserPoolId: AUTH_CONFIG.UserPoolId, ClientId: AUTH_CONFIG.ClientId };
+  var userPool = new AmazonCognitoIdentity.CognitoUserPool(poolData);
+  var cognitoUser = new AmazonCognitoIdentity.CognitoUser({ Username: email, Pool: userPool });
+
+  cognitoUser.confirmRegistration(code, true, function(err, result) {
+    setLoading(false);
+    if (err) {
+      var msg = err.message || 'Verification failed.';
+      if (err.code === 'CodeMismatchException') msg = 'Invalid code. Please try again.';
+      if (err.code === 'ExpiredCodeException') msg = 'Code expired. Click "Resend Code" to get a new one.';
+      showAlert(msg, 'error');
+      return;
+    }
+    window.location.href = '/?verified=1';
+  });
+
+  return false;
+}
+
+function resendCode() {
+  if (!email) { showAlert('Email not found.', 'error'); return; }
+  var poolData = { UserPoolId: AUTH_CONFIG.UserPoolId, ClientId: AUTH_CONFIG.ClientId };
+  var userPool = new AmazonCognitoIdentity.CognitoUserPool(poolData);
+  var cognitoUser = new AmazonCognitoIdentity.CognitoUser({ Username: email, Pool: userPool });
+
+  cognitoUser.resendConfirmationCode(function(err) {
+    if (err) { showAlert(err.message || 'Failed to resend.', 'error'); return; }
+    showAlert('New code sent to ' + email + '!', 'success');
+  });
+}
+</script>
+</body>
+</html>

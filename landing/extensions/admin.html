@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Extension Manager - Admin</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;background:#0f172a;color:#f1f5f9;padding:32px 20px}
+a{text-decoration:none;color:#818cf8}
+.auth-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:80vh}
+.auth-box{background:#1e293b;border:1px solid #334155;border-radius:16px;padding:32px;width:320px;text-align:center}
+.auth-box h2{font-size:18px;font-weight:700;margin-bottom:16px}
+.auth-box input{width:100%;padding:10px 14px;border:1px solid #334155;border-radius:8px;background:#0f172a;color:#f1f5f9;font-size:14px;outline:none;margin-bottom:12px}
+.auth-box input:focus{border-color:#818cf8}
+.auth-box button{width:100%;padding:10px;border-radius:8px;background:#6366f1;color:#fff;font-size:14px;font-weight:600;border:none;cursor:pointer}
+.auth-box button:hover{background:#4f46e5}
+.auth-error{color:#ef4444;font-size:12px;margin-top:8px}
+.admin{display:none}
+.back{display:inline-flex;align-items:center;gap:6px;color:#94a3b8;font-size:13px;font-weight:600;margin-bottom:20px}
+.back:hover{color:#818cf8}
+.page-title{font-size:24px;font-weight:800;margin-bottom:24px;display:flex;align-items:center;gap:10px}
+.page-title i{color:#f59e0b}
+.toolbar{display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap}
+.btn{padding:8px 16px;border-radius:8px;font-size:12px;font-weight:600;border:1px solid #334155;background:#1e293b;color:#f1f5f9;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all .15s}
+.btn:hover{border-color:#818cf8;color:#818cf8}
+.btn-primary{background:#6366f1;border-color:#6366f1;color:#fff}.btn-primary:hover{background:#4f46e5}
+.btn-danger{background:#ef444420;border-color:#ef444440;color:#ef4444}.btn-danger:hover{background:#ef444430}
+.btn-sm{padding:5px 10px;font-size:11px}
+.ext-list{display:flex;flex-direction:column;gap:12px;max-width:900px}
+.ext-item{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:16px;display:flex;align-items:center;gap:16px}
+.ext-item:hover{border-color:#475569}
+.ext-item-icon{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;color:#fff;flex-shrink:0}
+.ext-item-info{flex:1;min-width:0}
+.ext-item-info h4{font-size:14px;font-weight:700;margin-bottom:2px}
+.ext-item-info .meta{font-size:11px;color:#64748b}
+.ext-item-actions{display:flex;gap:6px;flex-shrink:0}
+.empty{text-align:center;padding:40px;color:#475569;font-size:14px}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);z-index:100;display:none;align-items:flex-start;justify-content:center;padding:40px 20px;overflow-y:auto}
+.modal-bg.open{display:flex}
+.modal{background:#1e293b;border:1px solid #334155;border-radius:16px;padding:28px;width:600px;max-width:100%}
+.modal h3{font-size:18px;font-weight:700;margin-bottom:20px;display:flex;align-items:center;gap:8px}
+.modal h3 i{color:#6366f1}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}
+.field input,.field textarea,.field select{width:100%;padding:8px 12px;border:1px solid #334155;border-radius:8px;background:#0f172a;color:#f1f5f9;font-size:13px;outline:none;font-family:inherit}
+.field input:focus,.field textarea:focus{border-color:#818cf8}
+.field textarea{min-height:80px;resize:vertical}
+.field .hint{font-size:10px;color:#475569;margin-top:2px}
+.row{display:flex;gap:12px}.row .field{flex:1}
+.color-row{display:flex;gap:6px;align-items:center}
+.color-swatch{width:32px;height:32px;border-radius:8px;cursor:pointer;border:2px solid transparent;transition:all .15s}
+.color-swatch:hover,.color-swatch.sel{border-color:#fff;transform:scale(1.1)}
+.toggle-row{display:flex;align-items:center;gap:8px;font-size:13px}
+.toggle{width:36px;height:20px;border-radius:10px;background:#334155;cursor:pointer;position:relative;transition:background .2s}
+.toggle.on{background:#6366f1}
+.toggle::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:left .2s}
+.toggle.on::after{left:18px}
+.upload-area{border:2px dashed #334155;border-radius:12px;padding:20px;text-align:center;cursor:pointer;transition:all .15s;margin-bottom:8px}
+.upload-area:hover,.upload-area.dragover{border-color:#818cf8;background:#1e1b4b20}
+.upload-area i{font-size:24px;color:#475569;margin-bottom:8px;display:block}
+.upload-area .label{font-size:12px;font-weight:600;color:#64748b}
+.upload-status{font-size:11px;padding:6px 10px;border-radius:6px;margin-top:6px;display:none}
+.upload-status.ok{display:block;background:#22c55e20;color:#22c55e;border:1px solid #22c55e40}
+.upload-status.err{display:block;background:#ef444420;color:#ef4444;border:1px solid #ef444440}
+.upload-status.prog{display:block;background:#3b82f620;color:#3b82f6;border:1px solid #3b82f640}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:20px;padding-top:16px;border-top:1px solid #334155}
+.toast{position:fixed;bottom:20px;right:20px;padding:10px 18px;border-radius:10px;font-size:12px;font-weight:600;display:none;align-items:center;gap:8px;z-index:200;box-shadow:0 8px 24px rgba(0,0,0,.3)}
+.toast.show-ok{display:flex;background:#22c55e;color:#fff}
+.toast.show-err{display:flex;background:#ef4444;color:#fff}
+</style>
+</head>
+<body>
+<div class="auth-screen" id="auth-screen">
+  <div class="auth-box">
+    <h2><i class="fa-solid fa-lock" style="color:#6366f1"></i> Admin Access</h2>
+    <input type="password" id="auth-pw" placeholder="Enter password" onkeydown="if(event.key==='Enter')doAuth()">
+    <button onclick="doAuth()">Enter</button>
+    <div class="auth-error" id="auth-err"></div>
+  </div>
+</div>
+<div class="admin" id="admin-panel">
+  <a href="/extensions/" class="back"><i class="fa-solid fa-arrow-left"></i> Back to Extensions</a>
+  <div class="page-title"><i class="fa-solid fa-screwdriver-wrench"></i> Extension Manager</div>
+  <div class="toolbar">
+    <button class="btn btn-primary" onclick="openForm()"><i class="fa-solid fa-plus"></i> Add Extension</button>
+    <button class="btn" onclick="loadExts()"><i class="fa-solid fa-rotate"></i> Refresh</button>
+  </div>
+  <div class="ext-list" id="ext-list"><div class="empty"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div></div>
+</div>
+<div class="modal-bg" id="form-modal">
+  <div class="modal">
+    <h3><i class="fa-solid fa-puzzle-piece"></i> <span id="form-title">Add Extension</span></h3>
+    <div class="row">
+      <div class="field"><label>Extension Name</label><input type="text" id="f-name" placeholder="e.g. Status Manager"></div>
+      <div class="field"><label>Version</label><input type="text" id="f-version" placeholder="e.g. 2.9.2"></div>
+    </div>
+    <div class="field"><label>Description</label><textarea id="f-desc" placeholder="What does this extension do?"></textarea></div>
+    <div class="field"><label>Features (one per line)</label><textarea id="f-features" placeholder="One-click status sync&#10;Auto-detects platforms"></textarea><div class="hint">Each line becomes a bullet point</div></div>
+    <div class="row">
+      <div class="field"><label>Icon (Font Awesome)</label><input type="text" id="f-icon" value="fa-solid fa-puzzle-piece"><div class="hint"><a href="https://fontawesome.com/icons" target="_blank">Browse icons</a></div></div>
+      <div class="field"><label>Tags (comma-separated)</label><input type="text" id="f-tags" placeholder="AMIGO, Persona"></div>
+    </div>
+    <div class="field"><label>Card Gradient Colors</label><div class="color-row" id="color-picker"></div></div>
+    <div class="field"><div class="toggle-row"><div class="toggle" id="f-chromeonly" onclick="this.classList.toggle('on')"></div><span>Chrome only</span></div></div>
+    <div class="row">
+      <div class="field">
+        <label><i class="fa-brands fa-chrome" style="color:#4285f4"></i> Chrome (.zip)</label>
+        <div class="upload-area" id="upload-chrome" onclick="document.getElementById('file-chrome').click()"><i class="fa-solid fa-cloud-arrow-up"></i><div class="label">Drop .zip or click</div><input type="file" id="file-chrome" accept=".zip" style="display:none" onchange="handleUpload('chrome',this.files[0])"></div>
+        <div class="upload-status" id="status-chrome"></div>
+        <input type="text" id="f-chrome-url" placeholder="Chrome URL (auto-filled)" style="margin-top:6px;font-size:11px">
+      </div>
+      <div class="field">
+        <label><i class="fa-brands fa-firefox-browser" style="color:#ff7f00"></i> Firefox (.xpi)</label>
+        <div class="upload-area" id="upload-firefox" onclick="document.getElementById('file-firefox').click()"><i class="fa-solid fa-cloud-arrow-up"></i><div class="label">Drop .xpi or click</div><input type="file" id="file-firefox" accept=".xpi,.zip" style="display:none" onchange="handleUpload('firefox',this.files[0])"></div>
+        <div class="upload-status" id="status-firefox"></div>
+        <input type="text" id="f-firefox-url" placeholder="Firefox URL (auto-filled)" style="margin-top:6px;font-size:11px">
+      </div>
+    </div>
+    <div class="modal-actions"><button class="btn" onclick="closeForm()">Cancel</button><button class="btn btn-primary" onclick="saveExt()"><i class="fa-solid fa-check"></i> Save</button></div>
+  </div>
+</div>
+<div class="toast" id="toast"><i class="fa-solid fa-circle-check"></i> <span id="toast-msg"></span></div>
+<script>
+var API="https://zta7che674.execute-api.us-east-1.amazonaws.com/api";
+var PW="remoteninja2026";
+var editId=null;
+var GRADS=[["#6366f1","#8b5cf6"],["#22c55e","#10b981"],["#f59e0b","#f97316"],["#06b6d4","#0ea5e9"],["#ec4899","#f43f5e"],["#ef4444","#dc2626"],["#3b82f6","#2563eb"],["#14b8a6","#0d9488"],["#a855f7","#7c3aed"],["#64748b","#475569"]];
+var selG=0;
+
+function doAuth(){var p=document.getElementById("auth-pw").value;if(p===PW){document.getElementById("auth-screen").style.display="none";document.getElementById("admin-panel").style.display="block";loadExts();}else{document.getElementById("auth-err").textContent="Wrong password";}}
+
+function toast(m,ok){var t=document.getElementById("toast");document.getElementById("toast-msg").textContent=m;t.className="toast "+(ok?"show-ok":"show-err");setTimeout(function(){t.className="toast";},3000);}
+
+function loadExts(){
+  fetch(API+"/extensions").then(function(r){return r.json();}).then(function(res){
+    var exts=res.data||[];var list=document.getElementById("ext-list");
+    if(!exts.length){list.innerHTML='<div class="empty"><i class="fa-solid fa-puzzle-piece" style="font-size:32px;opacity:.3;display:block;margin-bottom:8px"></i>No extensions. Click "Add Extension".</div>';return;}
+    var h="";exts.forEach(function(ext){
+      var c1=(ext.gradient_colors&&ext.gradient_colors[0])||"#6366f1";var c2=(ext.gradient_colors&&ext.gradient_colors[1])||"#8b5cf6";
+      h+='<div class="ext-item"><div class="ext-item-icon" style="background:linear-gradient(135deg,'+c1+','+c2+')"><i class="'+(ext.icon||"fa-solid fa-puzzle-piece")+'"></i></div>';
+      h+='<div class="ext-item-info"><h4>'+ext.name+'</h4><div class="meta">v'+ext.version+' &middot; '+(ext.tags||[]).join(", ")+(ext.chrome_url?' &middot; <span style="color:#4285f4">Chrome</span>':'')+(ext.firefox_url?' &middot; <span style="color:#ff7f00">Firefox</span>':'')+'</div></div>';
+      h+='<div class="ext-item-actions"><button class="btn btn-sm" onclick="editExt('+JSON.stringify(JSON.stringify(ext)).replace(/'/g,"\\'")+')"><i class="fa-solid fa-pen"></i> Edit</button>';
+      h+='<button class="btn btn-sm btn-danger" onclick="deleteExt(\''+ext.id+'\',\''+ext.name+'\')"><i class="fa-solid fa-trash"></i></button></div></div>';
+    });list.innerHTML=h;
+  }).catch(function(e){document.getElementById("ext-list").innerHTML='<div class="empty">Error: '+e.message+'</div>';});
+}
+
+function renderCP(){var h="";GRADS.forEach(function(g,i){h+='<div class="color-swatch'+(i===selG?" sel":"")+'" style="background:linear-gradient(135deg,'+g[0]+','+g[1]+')" onclick="selG='+i+';renderCP()"></div>';});document.getElementById("color-picker").innerHTML=h;}
+
+function openForm(){
+  editId=null;document.getElementById("form-title").textContent="Add Extension";
+  ["f-name","f-version","f-desc","f-features","f-tags","f-chrome-url","f-firefox-url"].forEach(function(id){document.getElementById(id).value="";});
+  document.getElementById("f-icon").value="fa-solid fa-puzzle-piece";
+  document.getElementById("f-chromeonly").classList.remove("on");
+  document.getElementById("status-chrome").className="upload-status";
+  document.getElementById("status-firefox").className="upload-status";
+  selG=0;renderCP();document.getElementById("form-modal").classList.add("open");
+}
+
+function editExt(jsonStr){
+  var ext=JSON.parse(jsonStr);editId=ext.id;
+  document.getElementById("form-title").textContent="Edit: "+ext.name;
+  document.getElementById("f-name").value=ext.name||"";
+  document.getElementById("f-version").value=ext.version||"";
+  document.getElementById("f-desc").value=ext.description||"";
+  document.getElementById("f-features").value=(ext.features||[]).join("\n");
+  document.getElementById("f-icon").value=ext.icon||"fa-solid fa-puzzle-piece";
+  document.getElementById("f-tags").value=(ext.tags||[]).join(", ");
+  document.getElementById("f-chrome-url").value=ext.chrome_url||"";
+  document.getElementById("f-firefox-url").value=ext.firefox_url||"";
+  if(ext.chrome_only)document.getElementById("f-chromeonly").classList.add("on");else document.getElementById("f-chromeonly").classList.remove("on");
+  selG=0;if(ext.gradient_colors)GRADS.forEach(function(g,i){if(g[0]===ext.gradient_colors[0]&&g[1]===ext.gradient_colors[1])selG=i;});
+  document.getElementById("status-chrome").className="upload-status";
+  document.getElementById("status-firefox").className="upload-status";
+  renderCP();document.getElementById("form-modal").classList.add("open");
+}
+
+function closeForm(){document.getElementById("form-modal").classList.remove("open");}
+
+function handleUpload(browser,file){
+  if(!file)return;var statusEl=document.getElementById("status-"+browser);var urlEl=document.getElementById("f-"+browser+"-url");
+  statusEl.textContent="Uploading "+file.name+"...";statusEl.className="upload-status prog";
+  var extName=(document.getElementById("f-name").value.trim().toLowerCase().replace(/[^a-z0-9]+/g,"-"))||"ext";
+  var ver=document.getElementById("f-version").value.trim()||"1.0.0";
+  var suffix=browser==="firefox"?".xpi":".zip";
+  var filename=extName+"-"+browser+"-v"+ver+suffix;
+  fetch(API+"/extensions/upload-url",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({filename:filename,content_type:"application/octet-stream"})})
+  .then(function(r){return r.json();})
+  .then(function(res){
+    if(!res.upload_url)throw new Error(res.error||"No upload URL");
+    return fetch(res.upload_url,{method:"PUT",headers:{"Content-Type":"application/octet-stream"},body:file}).then(function(up){
+      if(!up.ok)throw new Error("S3 upload failed: "+up.status);
+      urlEl.value=res.download_url;statusEl.textContent="Uploaded: "+filename+" ("+(file.size/1024).toFixed(1)+" KB)";statusEl.className="upload-status ok";
+    });
+  }).catch(function(e){statusEl.textContent="Failed: "+e.message;statusEl.className="upload-status err";});
+}
+
+["chrome","firefox"].forEach(function(b){
+  var a=document.getElementById("upload-"+b);if(!a)return;
+  a.addEventListener("dragover",function(e){e.preventDefault();a.classList.add("dragover");});
+  a.addEventListener("dragleave",function(){a.classList.remove("dragover");});
+  a.addEventListener("drop",function(e){e.preventDefault();a.classList.remove("dragover");if(e.dataTransfer.files[0])handleUpload(b,e.dataTransfer.files[0]);});
+});
+
+function saveExt(){
+  var name=document.getElementById("f-name").value.trim();if(!name){toast("Name required",false);return;}
+  var features=document.getElementById("f-features").value.trim().split("\n").filter(function(l){return l.trim();});
+  var tags=document.getElementById("f-tags").value.trim().split(",").map(function(t){return t.trim();}).filter(function(t){return t;});
+  var payload={name:name,version:document.getElementById("f-version").value.trim()||"1.0.0",description:document.getElementById("f-desc").value.trim(),features:features,icon:document.getElementById("f-icon").value.trim()||"fa-solid fa-puzzle-piece",gradient_colors:GRADS[selG],tags:tags,chrome_url:document.getElementById("f-chrome-url").value.trim(),firefox_url:document.getElementById("f-firefox-url").value.trim(),chrome_only:document.getElementById("f-chromeonly").classList.contains("on")};
+  if(editId)payload.id=editId;
+  fetch(API+"/extensions",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)})
+  .then(function(r){return r.json();}).then(function(res){if(res.success){toast(editId?"Updated!":"Added!",true);closeForm();loadExts();}else toast(res.error||"Failed",false);})
+  .catch(function(e){toast("Error: "+e.message,false);});
+}
+
+function deleteExt(id,name){
+  if(!confirm('Delete "'+name+'"?'))return;
+  fetch(API+"/extensions/"+id,{method:"DELETE"}).then(function(r){return r.json();}).then(function(res){if(res.success){toast("Deleted "+name,true);loadExts();}else toast(res.error,false);}).catch(function(e){toast("Error: "+e.message,false);});
+}
+
+renderCP();
+</script>
+</body>
+</html>

@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Remote Ninja — Team Tools</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="/auth/theme.css">
+<script src="/auth/theme.js"></script>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;background:var(--bg-primary);color:var(--text-primary);overflow-x:hidden}
+
+/* ====== SPLIT LOGIN VIEW ====== */
+#login-view{display:flex;min-height:100vh}
+.left-panel{flex:1;background:linear-gradient(160deg,var(--bg-primary) 0%,var(--bg-secondary) 40%,var(--bg-secondary) 70%,var(--bg-primary) 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 32px;position:relative;overflow:hidden}
+.left-panel::before{content:'';position:absolute;top:-120px;right:-120px;width:350px;height:350px;border-radius:50%;background:radial-gradient(circle,rgba(99,102,241,.08),transparent 70%)}
+.left-panel::after{content:'';position:absolute;bottom:-80px;left:-80px;width:280px;height:280px;border-radius:50%;background:radial-gradient(circle,rgba(245,158,11,.05),transparent 70%)}
+.left-logo{width:220px;height:220px;border-radius:32px;object-fit:cover;box-shadow:0 20px 60px rgba(0,0,0,.5),0 0 80px rgba(99,102,241,.1);margin-bottom:28px;position:relative;z-index:1}
+.left-brand{text-align:center;position:relative;z-index:1}
+.left-brand h1{font-size:42px;font-weight:800;letter-spacing:-.03em;margin-bottom:6px}
+.left-brand .w-remote{color:var(--text-heading)}
+.left-brand .w-ninja{background:linear-gradient(135deg,#f59e0b,#ef4444,#f59e0b);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.left-brand .tagline{font-size:13px;color:var(--text-tertiary);font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+
+.right-panel{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 32px;background:var(--bg-primary);position:relative}
+
+/* Auth card (glass morphism) */
+.auth-card{width:100%;max-width:400px;background:var(--bg-card);border:1px solid var(--border);border-radius:24px;padding:40px 36px;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);position:relative}
+.auth-card h2{font-size:26px;font-weight:800;letter-spacing:-.02em;margin-bottom:6px}
+.auth-card .sub{font-size:13px;color:var(--text-secondary);margin-bottom:28px}
+
+/* QR placeholder */
+.qr-wrap{display:flex;flex-direction:column;align-items:center;margin-bottom:24px}
+.qr-box{width:200px;height:200px;border-radius:16px;background:var(--bg-secondary);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+.qr-box canvas{border-radius:12px}
+.qr-hint{font-size:12px;color:var(--text-tertiary);margin-top:14px;text-align:center}
+
+/* Toggle button */
+.toggle-btn{width:100%;padding:12px;border:1px solid var(--border);border-radius:12px;background:transparent;color:var(--text-link);font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:8px}
+.toggle-btn:hover{border-color:var(--accent);background:var(--accent-bg)}
+
+/* Email form */
+.form-group{margin-bottom:16px}
+.form-group label{display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em}
+.form-group input{width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:var(--bg-input);color:var(--text-primary);font-size:14px;outline:none;transition:border-color .2s}
+.form-group input:focus{border-color:var(--accent)}
+.form-group input::placeholder{color:var(--text-tertiary)}
+.pw-wrap{position:relative}
+.pw-wrap input{padding-right:44px}
+.pw-toggle{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-tertiary);cursor:pointer;font-size:14px;padding:4px}
+.pw-toggle:hover{color:var(--text-secondary)}
+.form-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.form-row a{font-size:12px;color:var(--text-link);text-decoration:none;font-weight:600}
+.form-row a:hover{text-decoration:underline}
+
+.btn-primary{width:100%;padding:13px;border:none;border-radius:12px;background:var(--accent);color:var(--text-on-accent);font-size:14px;font-weight:700;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:8px}
+.btn-primary:hover{background:var(--accent-hover);transform:translateY(-1px);box-shadow:0 4px 20px rgba(99,102,241,.3)}
+.btn-primary:disabled{background:var(--border);color:var(--text-tertiary);cursor:not-allowed;transform:none;box-shadow:none}
+
+.back-btn{width:100%;padding:10px;border:none;background:transparent;color:var(--text-tertiary);font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;margin-top:12px;transition:color .2s}
+.back-btn:hover{color:var(--text-link)}
+
+/* Alert */
+.alert{padding:12px 14px;border-radius:10px;font-size:12px;margin-bottom:16px;display:flex;align-items:center;gap:8px;line-height:1.5}
+.alert a{color:inherit;font-weight:700;text-decoration:underline}
+.alert-success{background:var(--success-bg);border:1px solid var(--success-border);color:var(--success)}
+.alert-error{background:var(--danger-bg);border:1px solid var(--danger-border);color:var(--danger)}
+.alert-info{background:var(--accent-bg);border:1px solid var(--accent-border);color:var(--accent)}
+
+/* Spinner */
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* View transition */
+.view{display:none;animation:fadeIn .3s ease}
+.view.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+.login-footer{position:absolute;bottom:20px;font-size:11px;color:var(--text-tertiary)}
+
+/* ====== NEW PASSWORD FORM ====== */
+.pw-strength{height:4px;border-radius:2px;background:var(--bg-secondary);margin-top:8px;overflow:hidden}
+.pw-strength .bar{height:100%;border-radius:2px;transition:width .3s,background .3s}
+.pw-hint{font-size:11px;color:var(--text-tertiary);margin-top:4px}
+
+/* ====== DASHBOARD VIEW ====== */
+#dashboard-view{display:none;min-height:100vh;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px}
+
+.user-nav{position:fixed;top:12px;right:16px;display:flex;align-items:center;gap:8px;z-index:999}
+.user-nav a,.user-nav button{padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;text-decoration:none;border:1px solid var(--border);background:var(--bg-card);cursor:pointer;transition:all .15s}
+.user-nav a{color:var(--text-link)}
+.user-nav a:hover{border-color:var(--accent)}
+.user-nav button{color:var(--text-secondary)}
+.user-nav button:hover{border-color:var(--border-strong);color:var(--text-heading)}
+.user-nav .user-info{font-size:11px;color:var(--text-secondary)}
+.user-nav .user-info b{color:var(--text-heading)}
+.user-nav .role-badge{padding:2px 7px;border-radius:100px;font-size:9px;font-weight:700;color:#fff}
+.user-nav .avatar{width:28px;height:28px;border-radius:50%;background:var(--avatar-bg);color:var(--avatar-text);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700}
+
+.logo-wrap{margin-bottom:20px}
+.logo-wrap img{width:180px;height:180px;border-radius:28px;object-fit:cover;box-shadow:var(--shadow-lg)}
+
+.hero{text-align:center;max-width:600px;margin-bottom:48px}
+.hero h1{font-size:38px;font-weight:800;letter-spacing:-.03em;margin-bottom:4px}
+.hero h1 .remote{color:var(--text-heading)}
+.hero h1 .ninja{background:linear-gradient(135deg,#f59e0b,#ef4444,#f59e0b);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hero .subtitle{font-size:14px;color:var(--text-tertiary);font-weight:600;letter-spacing:.1em;text-transform:uppercase;margin-bottom:16px}
+.hero p{font-size:15px;color:var(--text-secondary);line-height:1.7}
+
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;width:100%;max-width:700px}
+.card{background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:28px;cursor:pointer;transition:all .2s;text-decoration:none;color:var(--text-primary);position:relative;overflow:hidden}
+.card:hover{border-color:var(--accent);transform:translateY(-4px);box-shadow:var(--shadow-lg)}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--accent1),var(--accent2));opacity:0;transition:opacity .2s}
+.card:hover::before{opacity:1}
+.card-icon{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;margin-bottom:16px;color:#fff}
+.card h3{font-size:16px;font-weight:700;margin-bottom:8px}
+.card p{font-size:13px;color:var(--text-secondary);line-height:1.6}
+.card .arrow{position:absolute;top:28px;right:24px;font-size:14px;color:var(--text-tertiary);transition:all .2s}
+.card:hover .arrow{color:var(--accent);transform:translateX(4px)}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:100px;font-size:10px;font-weight:700;margin-top:12px}
+.badge-live{background:var(--success-bg);color:var(--success);border:1px solid var(--success-border)}
+.badge-soon{background:var(--warning-bg);color:var(--warning);border:1px solid var(--warning-border)}
+
+.footer{margin-top:48px;font-size:12px;color:var(--text-tertiary);text-align:center}
+.footer a{color:var(--text-link);text-decoration:none}
+.footer a:hover{text-decoration:underline}
+
+/* ====== TOAST ====== */
+.toast{position:fixed;bottom:20px;right:20px;padding:12px 20px;border-radius:12px;font-size:13px;font-weight:600;display:none;align-items:center;gap:8px;z-index:9999;box-shadow:0 8px 30px rgba(0,0,0,.4);animation:slideUp .3s ease}
+.toast-success{background:var(--success);color:#fff}
+.toast-error{background:var(--danger);color:#fff}
+.toast-info{background:var(--accent);color:#fff}
+@keyframes slideUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+
+/* ====== RESPONSIVE ====== */
+@media(max-width:768px){
+  #login-view{flex-direction:column}
+  .left-panel{padding:40px 20px 24px;min-height:auto}
+  .left-logo{width:140px;height:140px;border-radius:24px;margin-bottom:16px}
+  .left-brand h1{font-size:30px}
+  .right-panel{padding:24px 20px 40px}
+  .auth-card{padding:28px 24px}
+  .qr-box{width:160px;height:160px}
+}
+</style>
+</head>
+<body>
+
+<!-- ============================== -->
+<!-- LOGIN VIEW (split-panel)       -->
+<!-- ============================== -->
+<div id="login-view">
+  <!-- LEFT PANEL: Logo & Branding -->
+  <div class="left-panel">
+    <img src="logo.png" alt="Remote Ninja" class="left-logo">
+    <div class="left-brand">
+      <h1><span class="w-remote">Remote </span><span class="w-ninja">Ninja</span></h1>
+      <div class="tagline">IPV Team Tools</div>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL: Auth Forms -->
+  <div class="right-panel">
+    <div style="position:absolute;top:16px;right:16px;z-index:10" id="login-theme-slot"></div>
+    <div class="auth-card">
+
+      <div id="alert-box"></div>
+
+      <!-- VIEW 1: QR Code Login (default) -->
+      <div id="qr-view" class="view active">
+        <h2>Welcome back</h2>
+        <p class="sub">Scan the QR code with your phone to sign in</p>
+        <div class="qr-wrap">
+          <div class="qr-box" id="qr-box">
+            <!-- QR states: loading → active → expired -->
+            <div id="qr-loading" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%">
+              <i class="fa-solid fa-spinner fa-spin" style="font-size:28px;color:var(--accent);margin-bottom:8px"></i>
+              <p style="font-size:11px;color:var(--text-tertiary)">Generating...</p>
+            </div>
+            <canvas id="qr-canvas" style="display:none;border-radius:12px"></canvas>
+            <div id="qr-expired" style="display:none;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;padding:16px">
+              <i class="fa-solid fa-clock" style="font-size:28px;color:var(--text-tertiary);margin-bottom:8px"></i>
+              <p style="font-size:12px;color:var(--text-secondary);margin-bottom:12px">QR code expired</p>
+              <button onclick="window._qrManager.generate()" style="padding:6px 16px;border-radius:8px;background:var(--accent);color:#fff;border:none;font-size:12px;font-weight:600;cursor:pointer">Generate new code</button>
+            </div>
+          </div>
+          <div class="qr-hint" id="qr-hint"><i class="fa-solid fa-mobile-screen" style="margin-right:4px"></i> Open Remote Ninja on your phone and scan</div>
+          <div id="qr-status-text" style="font-size:11px;color:var(--text-tertiary);margin-top:4px"></div>
+        </div>
+        <button class="toggle-btn" onclick="showView('email-view')">
+          <i class="fa-solid fa-envelope"></i> Sign in with email instead
+        </button>
+      </div>
+
+      <!-- VIEW 2: Email/Password Login -->
+      <div id="email-view" class="view">
+        <h2>Welcome back</h2>
+        <p class="sub">Sign in to your account</p>
+        <form id="login-form" onsubmit="return handleLogin(event)">
+          <div class="form-group">
+            <label for="email">Email</label>
+            <input type="email" id="email" placeholder="you@amazon.com" required autocomplete="email">
+          </div>
+          <div class="form-group">
+            <label for="password">Password</label>
+            <div class="pw-wrap">
+              <input type="password" id="password" placeholder="Enter your password" required autocomplete="current-password">
+              <button type="button" class="pw-toggle" onclick="togglePw('password',this)"><i class="fa-solid fa-eye"></i></button>
+            </div>
+          </div>
+          <div class="form-row">
+            <span></span>
+            <a href="/auth/forgot-password.html">Forgot password?</a>
+          </div>
+          <button type="submit" class="btn-primary" id="login-btn">
+            <span id="login-text">Sign In</span>
+            <span id="login-spinner" style="display:none"><span class="spinner"></span></span>
+          </button>
+        </form>
+        <button class="back-btn" onclick="showView('qr-view')">
+          <i class="fa-solid fa-arrow-left"></i> Back to QR code login
+        </button>
+      </div>
+
+      <!-- VIEW 3: Set New Password (for invited users) -->
+      <div id="newpw-view" class="view">
+        <h2>Set Your Password</h2>
+        <p class="sub">Your admin created your account. Please set a new password to continue.</p>
+        <form id="newpw-form" onsubmit="return handleNewPassword(event)">
+          <div class="form-group">
+            <label for="new-pw">New Password</label>
+            <div class="pw-wrap">
+              <input type="password" id="new-pw" placeholder="Choose a strong password" required autocomplete="new-password">
+              <button type="button" class="pw-toggle" onclick="togglePw('new-pw',this)"><i class="fa-solid fa-eye"></i></button>
+            </div>
+            <div class="pw-strength"><div class="bar" id="pw-bar"></div></div>
+            <div class="pw-hint" id="pw-hint">At least 8 characters, uppercase, lowercase, and number</div>
+          </div>
+          <div class="form-group">
+            <label for="confirm-pw">Confirm Password</label>
+            <div class="pw-wrap">
+              <input type="password" id="confirm-pw" placeholder="Repeat your password" required autocomplete="new-password">
+              <button type="button" class="pw-toggle" onclick="togglePw('confirm-pw',this)"><i class="fa-solid fa-eye"></i></button>
+            </div>
+          </div>
+          <button type="submit" class="btn-primary" id="newpw-btn">
+            <span id="newpw-text">Set Password & Sign In</span>
+            <span id="newpw-spinner" style="display:none"><span class="spinner"></span></span>
+          </button>
+        </form>
+        <button class="back-btn" onclick="showView('email-view')">
+          <i class="fa-solid fa-arrow-left"></i> Back to sign in
+        </button>
+      </div>
+
+    </div>
+    <div class="login-footer">© 2026 Remote Ninja</div>
+  </div>
+</div>
+
+<!-- ============================== -->
+<!-- DASHBOARD VIEW (authenticated) -->
+<!-- ============================== -->
+<div id="dashboard-view">
+  <div class="user-nav" id="user-nav"></div>
+
+  <div class="logo-wrap">
+    <img src="logo.png" alt="Remote Ninja Logo">
+  </div>
+
+  <div class="hero">
+    <h1><span class="remote">Remote </span><span class="ninja">Ninja</span></h1>
+    <div class="subtitle">IPV Team Tools</div>
+    <p>Internal tools for the Remote Ninja team — scheduling, workflows, extensions, and more.</p>
+  </div>
+
+  <div class="cards">
+    <a href="/schedule/" class="card" style="--accent1:#6366f1;--accent2:#8b5cf6">
+      <div class="card-icon" style="background:linear-gradient(135deg,#6366f1,#8b5cf6)">
+        <i class="fa-solid fa-calendar-days"></i>
+      </div>
+      <span class="arrow"><i class="fa-solid fa-arrow-right"></i></span>
+      <h3>Schedule Live</h3>
+      <p>Real-time team scheduling with drag-to-edit shift bars, multi-manager hierarchy, case type filtering, and bulk editing.</p>
+      <div class="badge badge-live"><span style="width:5px;height:5px;border-radius:50%;background:#22c55e;display:inline-block"></span> Live</div>
+    </a>
+
+    <a href="/extensions/" class="card" style="--accent1:#06b6d4;--accent2:#0ea5e9">
+      <div class="card-icon" style="background:linear-gradient(135deg,#06b6d4,#0ea5e9)">
+        <i class="fa-solid fa-puzzle-piece"></i>
+      </div>
+      <span class="arrow"><i class="fa-solid fa-arrow-right"></i></span>
+      <h3>Browser Extensions</h3>
+      <p>Status Manager, SP Lookup, SJO Clock, and other Chrome/Firefox extensions for the team.</p>
+      <div class="badge badge-live"><span style="width:5px;height:5px;border-radius:50%;background:#22c55e;display:inline-block"></span> Live</div>
+    </a>
+
+    <a href="/speech-to-text/" class="card" style="--accent1:#ec4899;--accent2:#f43f5e">
+      <div class="card-icon" style="background:linear-gradient(135deg,#ec4899,#f43f5e)">
+        <i class="fa-solid fa-microphone"></i>
+      </div>
+      <span class="arrow"><i class="fa-solid fa-arrow-right"></i></span>
+      <h3>Voice Tools</h3>
+      <p>Dictate speech to text or have text read aloud. Copy, download, and edit — supports multiple languages.</p>
+      <div class="badge badge-live"><span style="width:5px;height:5px;border-radius:50%;background:#22c55e;display:inline-block"></span> Live</div>
+    </a>
+
+    <div class="card" style="--accent1:#f59e0b;--accent2:#f97316;opacity:.5;cursor:default">
+      <div class="card-icon" style="background:linear-gradient(135deg,#f59e0b,#f97316)">
+        <i class="fa-solid fa-chart-line"></i>
+      </div>
+      <h3>Metrics Dashboard</h3>
+      <p>Weekly team performance metrics, productivity trends, and coverage analytics.</p>
+      <div class="badge badge-soon"><i class="fa-solid fa-clock" style="font-size:8px"></i> Coming Soon</div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <p>Built with <i class="fa-solid fa-heart" style="color:#ef4444;font-size:10px"></i> by the <strong>Remote Ninja</strong> team · IPV · 2026</p>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"><i class="fa-solid fa-circle-check"></i> <span id="toast-msg"></span></div>
+
+<!-- Scripts -->
+<script src="/auth/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/amazon-cognito-identity-js@6/dist/amazon-cognito-identity.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script>
+(function() {
+  'use strict';
+
+  // ============ QR Code Login Manager ============
+  var _qrToken = null;
+  var _qrPollTimer = null;
+  var _qrExpireTimer = null;
+  var QR_POLL_MS = 3000;
+  var QR_EXPIRE_MS = 290000; // slightly less than 5min server TTL
+
+  window._qrManager = {
+    generate: function() {
+      _qrManager.stopPolling();
+      document.getElementById('qr-loading').style.display = 'flex';
+      document.getElementById('qr-canvas').style.display = 'none';
+      document.getElementById('qr-expired').style.display = 'none';
+      document.getElementById('qr-status-text').textContent = '';
+      document.getElementById('qr-hint').style.display = '';
+
+      fetch(AUTH_CONFIG.ApiUrl + '/auth/qr/generate', { method: 'POST' })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (!data.qr_url || !data.token) throw new Error('Invalid QR response');
+          _qrToken = data.token;
+
+          var canvas = document.getElementById('qr-canvas');
+          var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+          QRCode.toCanvas(canvas, data.qr_url, {
+            width: 180,
+            margin: 2,
+            color: { dark: isDark ? '#e2e8f0' : '#0f172a', light: isDark ? '#1e293b' : '#ffffff' }
+          }, function(err) {
+            if (err) { console.error('QR render error:', err); return; }
+            document.getElementById('qr-loading').style.display = 'none';
+            canvas.style.display = 'block';
+            _qrManager.startPolling();
+            // Auto-expire on client side
+            _qrExpireTimer = setTimeout(function() { _qrManager.showExpired(); }, QR_EXPIRE_MS);
+          });
+        })
+        .catch(function(err) {
+          console.error('QR generate error:', err);
+          document.getElementById('qr-loading').style.display = 'none';
+          document.getElementById('qr-expired').style.display = 'flex';
+          document.getElementById('qr-hint').style.display = 'none';
+        });
+    },
+    startPolling: function() {
+      _qrManager.stopPolling();
+      _qrPollTimer = setInterval(function() {
+        if (!_qrToken) return;
+        fetch(AUTH_CONFIG.ApiUrl + '/auth/qr/status/' + _qrToken)
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            if (data.status === 'approved' && data.tokens) {
+              _qrManager.stopPolling();
+              sessionStorage.setItem('sl_id_token', data.tokens.id_token);
+              sessionStorage.setItem('sl_access_token', data.tokens.access_token);
+              sessionStorage.setItem('sl_refresh_token', data.tokens.refresh_token);
+              showToast('Signed in via QR code!', 'success');
+              setTimeout(function() { switchToDashboard(); }, 400);
+            } else if (data.status === 'expired') {
+              _qrManager.showExpired();
+            }
+            // 'pending' — keep polling
+          })
+          .catch(function() { /* network blip, keep polling */ });
+      }, QR_POLL_MS);
+    },
+    stopPolling: function() {
+      if (_qrPollTimer) { clearInterval(_qrPollTimer); _qrPollTimer = null; }
+      if (_qrExpireTimer) { clearTimeout(_qrExpireTimer); _qrExpireTimer = null; }
+    },
+    showExpired: function() {
+      _qrManager.stopPolling();
+      _qrToken = null;
+      document.getElementById('qr-canvas').style.display = 'none';
+      document.getElementById('qr-loading').style.display = 'none';
+      document.getElementById('qr-expired').style.display = 'flex';
+      document.getElementById('qr-hint').style.display = 'none';
+      document.getElementById('qr-status-text').textContent = '';
+    }
+  };
+
+  // ============ View Management ============
+  var currentView = 'qr-view';
+  window.showView = function(viewId) {
+    document.querySelectorAll('.view').forEach(function(v) { v.classList.remove('active'); });
+    var target = document.getElementById(viewId);
+    if (target) {
+      target.classList.add('active');
+      currentView = viewId;
+      var inp = target.querySelector('input');
+      if (inp) setTimeout(function() { inp.focus(); }, 100);
+      // Manage QR polling based on view
+      if (viewId === 'qr-view') {
+        // Resume/start QR if no active token
+        if (!_qrToken) { _qrManager.generate(); }
+        else { _qrManager.startPolling(); }
+      } else {
+        _qrManager.stopPolling();
+      }
+    }
+    clearAlert();
+  };
+
+  // ============ Alert / Toast ============
+  function showAlert(msg, type) {
+    var icons = { success: 'check-circle', error: 'circle-exclamation', info: 'circle-info' };
+    document.getElementById('alert-box').innerHTML =
+      '<div class="alert alert-' + type + '"><i class="fa-solid fa-' + (icons[type] || 'circle-info') + '"></i>' + msg + '</div>';
+  }
+  function clearAlert() {
+    document.getElementById('alert-box').innerHTML = '';
+  }
+  function showToast(msg, type) {
+    var t = document.getElementById('toast');
+    t.className = 'toast toast-' + (type || 'success');
+    document.getElementById('toast-msg').textContent = msg;
+    t.style.display = 'flex';
+    setTimeout(function() { t.style.display = 'none'; }, 3500);
+  }
+
+  // ============ Password Visibility Toggle ============
+  window.togglePw = function(inputId, btn) {
+    var inp = document.getElementById(inputId);
+    var icon = btn.querySelector('i');
+    if (inp.type === 'password') {
+      inp.type = 'text';
+      icon.className = 'fa-solid fa-eye-slash';
+    } else {
+      inp.type = 'password';
+      icon.className = 'fa-solid fa-eye';
+    }
+  };
+
+  // ============ Password Strength ============
+  var newPwInput = document.getElementById('new-pw');
+  if (newPwInput) {
+    newPwInput.addEventListener('input', function() {
+      var pw = this.value;
+      var score = 0;
+      if (pw.length >= 8) score++;
+      if (/[A-Z]/.test(pw)) score++;
+      if (/[a-z]/.test(pw)) score++;
+      if (/[0-9]/.test(pw)) score++;
+      if (/[^A-Za-z0-9]/.test(pw)) score++;
+      var bar = document.getElementById('pw-bar');
+      var colors = ['#ef4444', '#f59e0b', '#f59e0b', '#22c55e', '#22c55e'];
+      var widths = ['20%', '40%', '60%', '80%', '100%'];
+      bar.style.width = widths[Math.max(0, score - 1)] || '0%';
+      bar.style.background = colors[Math.max(0, score - 1)] || '#ef4444';
+    });
+  }
+
+  // ============ Cognito Helpers ============
+  function getCognitoPool() {
+    return new AmazonCognitoIdentity.CognitoUserPool({
+      UserPoolId: AUTH_CONFIG.UserPoolId,
+      ClientId: AUTH_CONFIG.ClientId
+    });
+  }
+
+  function setLoading(btnId, textId, spinnerId, loading) {
+    document.getElementById(textId).style.display = loading ? 'none' : '';
+    document.getElementById(spinnerId).style.display = loading ? '' : 'none';
+    document.getElementById(btnId).disabled = loading;
+  }
+
+  // Temp storage for newPasswordRequired challenge
+  var _cognitoUser = null;
+  var _userAttributes = null;
+
+  // ============ Login Handler ============
+  window.handleLogin = function(e) {
+    e.preventDefault();
+    var email = document.getElementById('email').value.trim();
+    var pw = document.getElementById('password').value;
+    if (!email || !pw) { showAlert('Please fill in all fields.', 'error'); return false; }
+
+    setLoading('login-btn', 'login-text', 'login-spinner', true);
+    clearAlert();
+
+    var pool = getCognitoPool();
+    var authDetails = new AmazonCognitoIdentity.AuthenticationDetails({ Username: email, Password: pw });
+    var cognitoUser = new AmazonCognitoIdentity.CognitoUser({ Username: email, Pool: pool });
+
+    cognitoUser.authenticateUser(authDetails, {
+      onSuccess: function(result) {
+        _qrManager.stopPolling();
+        sessionStorage.setItem('sl_id_token', result.getIdToken().getJwtToken());
+        sessionStorage.setItem('sl_access_token', result.getAccessToken().getJwtToken());
+        sessionStorage.setItem('sl_refresh_token', result.getRefreshToken().getToken());
+        showToast('Signed in successfully!', 'success');
+        setTimeout(function() { switchToDashboard(); }, 400);
+      },
+      onFailure: function(err) {
+        setLoading('login-btn', 'login-text', 'login-spinner', false);
+        var msg = err.message || 'Authentication failed.';
+        if (err.code === 'UserNotConfirmedException') {
+          msg = 'Please verify your email first. <a href="/auth/verify.html?email=' + encodeURIComponent(email) + '">Verify now</a>';
+        } else if (err.code === 'NotAuthorizedException') {
+          msg = 'Incorrect email or password.';
+        } else if (err.code === 'UserNotFoundException') {
+          msg = 'No account found with this email.';
+        } else if (err.code === 'PasswordResetRequiredException') {
+          msg = 'You need to reset your password. <a href="/auth/forgot-password.html">Reset now</a>';
+        }
+        showAlert(msg, 'error');
+      },
+      newPasswordRequired: function(userAttributes, requiredAttributes) {
+        setLoading('login-btn', 'login-text', 'login-spinner', false);
+        // Store for completing the challenge
+        _cognitoUser = cognitoUser;
+        _userAttributes = userAttributes;
+        // Remove read-only attributes that can't be sent back
+        delete _userAttributes.email_verified;
+        delete _userAttributes.phone_number_verified;
+        delete _userAttributes.email;
+        delete _userAttributes['custom:role'];
+        delete _userAttributes.name;
+        // Switch to new password view
+        showView('newpw-view');
+        showAlert('Your admin created your account. Please set a new password.', 'info');
+      }
+    });
+    return false;
+  };
+
+  // ============ New Password Handler ============
+  window.handleNewPassword = function(e) {
+    e.preventDefault();
+    var newPw = document.getElementById('new-pw').value;
+    var confirmPw = document.getElementById('confirm-pw').value;
+
+    if (newPw !== confirmPw) {
+      showAlert('Passwords do not match.', 'error');
+      return false;
+    }
+    if (newPw.length < 8 || !/[A-Z]/.test(newPw) || !/[a-z]/.test(newPw) || !/[0-9]/.test(newPw)) {
+      showAlert('Password must be at least 8 characters with uppercase, lowercase, and a number.', 'error');
+      return false;
+    }
+    if (!_cognitoUser) {
+      showAlert('Session expired. Please try logging in again.', 'error');
+      showView('email-view');
+      return false;
+    }
+
+    setLoading('newpw-btn', 'newpw-text', 'newpw-spinner', true);
+    clearAlert();
+
+    _cognitoUser.completeNewPasswordChallenge(newPw, _userAttributes, {
+      onSuccess: function(result) {
+        _qrManager.stopPolling();
+        sessionStorage.setItem('sl_id_token', result.getIdToken().getJwtToken());
+        sessionStorage.setItem('sl_access_token', result.getAccessToken().getJwtToken());
+        sessionStorage.setItem('sl_refresh_token', result.getRefreshToken().getToken());
+        _cognitoUser = null;
+        _userAttributes = null;
+        showToast('Password set! Welcome to Remote Ninja.', 'success');
+        setTimeout(function() { switchToDashboard(); }, 400);
+      },
+      onFailure: function(err) {
+        setLoading('newpw-btn', 'newpw-text', 'newpw-spinner', false);
+        showAlert(err.message || 'Failed to set password.', 'error');
+      }
+    });
+    return false;
+  };
+
+  // ============ Session Check ============
+  function parseJwt(token) {
+    try {
+      var b64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+      return JSON.parse(decodeURIComponent(atob(b64).split('').map(function(c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+      }).join('')));
+    } catch (e) { return null; }
+  }
+
+  function isAuthenticated() {
+    var token = sessionStorage.getItem('sl_id_token');
+    if (!token) return false;
+    var payload = parseJwt(token);
+    if (!payload || !payload.exp) return false;
+    return Date.now() < payload.exp * 1000;
+  }
+
+  function getUserInfo() {
+    var token = sessionStorage.getItem('sl_id_token');
+    if (!token) return null;
+    var payload = parseJwt(token);
+    if (!payload) return null;
+    return {
+      email: payload.email || '',
+      name: payload.name || payload.email || '',
+      role: payload['custom:role'] || 'member',
+      sub: payload.sub || ''
+    };
+  }
+
+  // ============ View Switching ============
+  function switchToDashboard() {
+    var user = getUserInfo();
+    if (!user) return;
+
+    document.getElementById('login-view').style.display = 'none';
+    var dash = document.getElementById('dashboard-view');
+    dash.style.display = 'flex';
+
+    // Build nav bar
+    var roleColors = { super_admin: '#ef4444', admin: '#f59e0b', member: '#22c55e' };
+    var roleLabels = { super_admin: 'Super Admin', admin: 'Admin', member: 'Member' };
+    var initial = (user.name || user.email || '?')[0].toUpperCase();
+    var roleLevel = { super_admin: 3, admin: 2, member: 1 };
+
+    var nav = document.getElementById('user-nav');
+    // Will inject theme toggle after nav is built
+    // Build nav
+    nav.innerHTML = ''
+      + (roleLevel[user.role] >= 3 ? '<a href="/admin/"><i class="fa-solid fa-shield-halved"></i> Admin</a>' : '')
+      + '<span class="user-info">Hi, <b>' + (user.name || user.email) + '</b></span>'
+      + '<span class="role-badge" style="background:' + (roleColors[user.role] || '#64748b') + '">' + (roleLabels[user.role] || user.role) + '</span>'
+      + '<span class="avatar">' + initial + '</span>'
+      + '<span id="dash-theme-slot"></span>'
+      + '<button onclick="doLogout()"><i class="fa-solid fa-right-from-bracket"></i></button>';
+    if (typeof ThemeManager !== 'undefined') ThemeManager.injectToggle('dash-theme-slot');
+  }
+
+  function switchToLogin() {
+    document.getElementById('dashboard-view').style.display = 'none';
+    document.getElementById('login-view').style.display = 'flex';
+    showView('qr-view');
+  }
+
+  window.doLogout = function() {
+    try {
+      var pool = getCognitoPool();
+      var cu = pool.getCurrentUser();
+      if (cu) cu.signOut();
+    } catch (e) {}
+    sessionStorage.removeItem('sl_id_token');
+    sessionStorage.removeItem('sl_access_token');
+    sessionStorage.removeItem('sl_refresh_token');
+    switchToLogin();
+    showToast('Signed out.', 'info');
+  };
+
+  // ============ Init ============
+  // Check URL params for messages
+  var params = new URLSearchParams(window.location.search);
+  if (params.get('verified')) showAlert('Email verified! You can now sign in.', 'success');
+  if (params.get('reset')) showAlert('Password reset! Sign in with your new password.', 'success');
+  if (params.get('access_denied')) showAlert('Access denied. Insufficient permissions.', 'error');
+  if (params.get('session_expired')) showAlert('Session expired. Please sign in again.', 'error');
+
+  // If already authenticated, go straight to dashboard
+  if (isAuthenticated()) {
+    switchToDashboard();
+  } else {
+    // Make sure login view is visible
+    document.getElementById('login-view').style.display = 'flex';
+    // Auto-generate QR code on page load
+    if (typeof QRCode !== 'undefined') {
+      _qrManager.generate();
+    }
+  }
+
+  // Inject theme toggles
+  if (typeof ThemeManager !== 'undefined') {
+    ThemeManager.injectToggle('login-theme-slot');
+  }
+
+})();
+</script>
+</body>
+</html>

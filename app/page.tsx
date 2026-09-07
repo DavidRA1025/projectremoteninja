@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { OrgData, Member, Shift, SelectionRef, CaseTypes, ManagerGroup, CaseTypeConfig } from "@/lib/types";
-import { loadOrg, saveOrg, loadCaseTypes, saveCaseTypes, generateId, tH, hToStr, classifyShift, ini, makeShifts, emptyTrained, nextColor } from "@/lib/store";
+import { generateId, tH, hToStr, classifyShift, ini, makeShifts, emptyTrained, nextColor } from "@/lib/store";
+import { loadOrgApi, saveOrgApi, loadCaseTypesApi, saveCaseTypesApi } from "@/lib/api";
 import { SLOT_SIZE, NUM_SLOTS, SLOT_LABELS, DAY_NAMES } from "@/lib/constants";
 
 
@@ -48,10 +49,28 @@ export default function SchedulePage() {
   const [addModal, setAddModal] = useState(false);
   const [addGroupModal, setAddGroupModal] = useState(false);
   const [settingsModal, setSettingsModal] = useState(false);
+  const [bulkUploadModal, setBulkUploadModal] = useState(false);
 
-  useEffect(() => { setOrg(loadOrg()); setCaseTypes(loadCaseTypes()); setMounted(true); }, []);
-  useEffect(() => { if (mounted) saveOrg(org); }, [org, mounted]);
-  useEffect(() => { if (mounted) saveCaseTypes(caseTypes); }, [caseTypes, mounted]);
+  // Load data from API on mount
+  useEffect(() => {
+    async function init() {
+      const [orgResult, ctData] = await Promise.all([loadOrgApi(), loadCaseTypesApi()]);
+      const [orgData, _version] = orgResult;
+      setOrg(orgData || []);
+      setCaseTypes(ctData);
+      setMounted(true);
+    }
+    init();
+  }, []);
+
+  // Save org to API when it changes
+  const orgRef = useRef(false);
+  useEffect(() => { if (orgRef.current) { saveOrgApi(org); } else { orgRef.current = mounted; } }, [org, mounted]);
+
+  // Save case types to API when they change
+  const ctRef = useRef(false);
+  useEffect(() => { if (ctRef.current) { saveCaseTypesApi(caseTypes); } else { ctRef.current = mounted; } }, [caseTypes, mounted]);
+
   useEffect(() => { document.documentElement.classList.toggle("dark", dark); }, [dark]);
 
   const showToast = useCallback((msg: string) => {
@@ -66,10 +85,10 @@ export default function SchedulePage() {
 
   const allPeople = (): Member[] => {
     const a: Member[] = [];
-    org.forEach((g) => { a.push(g.mgr); g.members.forEach((m) => a.push(m)); });
+    (org || []).forEach((g) => { if (g.mgr) a.push(g.mgr); (g.members || []).forEach((m) => a.push(m)); });
     return a;
   };
-  const getRef = (s: SelectionRef): Member => s.isMgr ? org[s.gi].mgr : org[s.gi].members[s.mi];
+  const getRef = (s: SelectionRef): Member => s.isMgr ? org[s.gi]?.mgr : org[s.gi]?.members?.[s.mi];
   const isSelected = (gi: number, mi: number, isMgr: boolean) => selected.some((s) => s.gi === gi && s.mi === mi && s.isMgr === isMgr);
   const toggleSelect = (gi: number, mi: number, isMgr: boolean) => {
     setSelected((prev) => {
@@ -180,6 +199,7 @@ export default function SchedulePage() {
       <div className="flex items-center gap-1.5">
           <button className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-xs" onClick={() => setDark(!dark)}><i className={"fa-solid fa-" + (dark ? "sun" : "moon")} /></button>
           <button className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-xs font-semibold flex items-center gap-1 hover:border-indigo-400 hover:text-indigo-500 transition" onClick={() => setSettingsModal(true)}><i className="fa-solid fa-gear" /> Case Types</button>
+          <button className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-xs font-semibold flex items-center gap-1 hover:border-green-400 hover:text-green-500 transition" onClick={() => setBulkUploadModal(true)}><i className="fa-solid fa-file-arrow-up" /> Bulk Upload</button>
           <button className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-xs font-semibold flex items-center gap-1" onClick={() => setAddGroupModal(true)}><i className="fa-solid fa-sitemap" /> Add Team</button>
           <button className="px-2.5 py-1.5 rounded-lg bg-indigo-500 text-white text-xs font-semibold flex items-center gap-1" onClick={() => setAddModal(true)}><i className="fa-solid fa-plus" /> Add Member</button>
         </div>
@@ -200,7 +220,7 @@ export default function SchedulePage() {
         <div className="flex items-center gap-1.5 mb-3 flex-wrap p-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl">
           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mr-1"><i className="fa-solid fa-filter mr-1" />Case</span>
           <button className={"px-3 py-1 rounded-full text-[10px] font-bold border " + (activeFilter === null ? "bg-indigo-500 text-white border-indigo-500" : "border-slate-200 dark:border-slate-600 text-slate-500")} onClick={() => setActiveFilter(null)}>All</button>
-          {caseTypes.map((ct) => {
+          {caseTypes.map((ct: CaseTypeConfig) => {
             const count = ap.filter((m) => m.trained[ct.key]).length;
             return <button key={ct.key} className={"px-3 py-1 rounded-full text-[10px] font-bold border " + (activeFilter === ct.key ? "text-white border-transparent" : "border-slate-200 dark:border-slate-600 text-slate-500")} style={activeFilter === ct.key ? { background: ct.color } : {}} onClick={() => setActiveFilter(activeFilter === ct.key ? null : ct.key)}>{ct.label} <span className="opacity-70 font-mono">{count}</span></button>;
           })}
@@ -269,7 +289,7 @@ export default function SchedulePage() {
                                 <div className={"w-[26px] h-[26px] rounded-full flex items-center justify-center text-[9px] font-bold text-white shrink-0 " + (isMgr ? "border-2 border-indigo-400" : "")} style={{ background: m.color }}>{ini(m.login)}</div>
                                 <div className="min-w-0">
                                   <div className={"text-[11px] font-semibold truncate " + (isMgr ? "text-indigo-500" : "")}>{m.name || m.login}</div>
-                                  <div className="flex gap-0.5 flex-wrap mt-0.5">{caseTypes.filter((ct) => m.trained[ct.key]).map((ct) => (<span key={ct.key} className="text-[7px] font-bold px-1 rounded text-white" style={{ background: ct.color }}>{ct.label}</span>))}</div>
+                                  <div className="flex gap-0.5 flex-wrap mt-0.5">{caseTypes.filter((ct: CaseTypeConfig) => m.trained[ct.key]).map((ct: CaseTypeConfig) => (<span key={ct.key} className="text-[7px] font-bold px-1 rounded" style={{ background: ct.color, color: badgeTextColor(ct.color) }}>{ct.label}</span>))}</div>
                                 </div>
                                 {!isMgr && <button className="ml-auto text-[9px] text-red-300 hover:text-red-500 opacity-0 group-hover:opacity-100 px-1" onClick={() => { if (confirm("Remove " + m.login + "?")) removeMember(gi, miVal); }}><i className="fa-solid fa-xmark" /></button>}
                               </div>
@@ -326,11 +346,12 @@ export default function SchedulePage() {
       </div>
 
       {/* MODALS */}
-      {editModal && <EditModal org={org} m={editModal} days={DAYS} onSave={(sh) => { updateShift(editModal.gi, editModal.mi, editModal.di, editModal.isMgr, sh); setEditModal(null); showToast("Updated!"); }} onClose={() => setEditModal(null)} />}
-      {bulkModal && <BulkModal sel={selected} org={org} onApply={bulkApply} onClose={() => setBulkModal(false)} />}
+      {editModal && <EditModal org={org} m={editModal} days={DAYS} onSave={(sh: Shift | null) => { updateShift(editModal.gi, editModal.mi, editModal.di, editModal.isMgr, sh); setEditModal(null); showToast("Updated!"); }} onClose={() => setEditModal(null)} />}
+      {bulkModal && <BulkModal sel={selected} org={org} caseTypes={caseTypes} onApply={bulkApply} onClose={() => setBulkModal(false)} />}
       {addModal && <AddModal org={org} caseTypes={caseTypes} onAdd={addMember} onClose={() => setAddModal(false)} />}
       {addGroupModal && <AddGroupModal onAdd={addGroup} onClose={() => setAddGroupModal(false)} />}
       {settingsModal && <SettingsModal caseTypes={caseTypes} onSave={(ct) => { setCaseTypes(ct); setSettingsModal(false); showToast("Case types updated!"); }} onClose={() => setSettingsModal(false)} />}
+      {bulkUploadModal && <BulkUploadModal caseTypes={caseTypes} onImport={(newOrg, newCt) => { setOrg(newOrg); if (newCt.length > 0) setCaseTypes(newCt); setBulkUploadModal(false); showToast("Bulk import complete!"); }} onClose={() => setBulkUploadModal(false)} />}
       {toast && <div className="fixed bottom-4 right-4 bg-slate-900 text-white px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 shadow-xl z-[300]"><i className="fa-solid fa-circle-check" />{toast}</div>}
     </div>
   );
@@ -357,7 +378,7 @@ function EditModal({ org, m, days, onSave, onClose }: any) {
   </Overlay>;
 }
 
-function BulkModal({ sel, org, onApply, onClose }: any) {
+function BulkModal({ sel, org, caseTypes, onApply, onClose }: any) {
   const first = sel[0].isMgr ? org[sel[0].gi].mgr : org[sel[0].gi].members[sel[0].mi];
   const fsh = Object.values(first.shifts)[0] as Shift | undefined;
   const [start, setStart] = useState(fsh?.s || "08:00");
@@ -369,7 +390,7 @@ function BulkModal({ sel, org, onApply, onClose }: any) {
     <Lbl>Shift</Lbl><div className="flex gap-1.5"><input type="time" value={start} onChange={(e) => setStart(e.target.value)} className="flex-1 p-1.5 border border-slate-200 dark:border-slate-600 rounded-lg text-sm bg-slate-50 dark:bg-slate-700" step={1800} /><input type="time" value={end} onChange={(e) => setEnd(e.target.value)} className="flex-1 p-1.5 border border-slate-200 dark:border-slate-600 rounded-lg text-sm bg-slate-50 dark:bg-slate-700" step={1800} /></div>
     <Lbl>Type</Lbl><select value={type} onChange={(e) => setType(e.target.value as Shift["t"])} className="w-full p-1.5 border border-slate-200 dark:border-slate-600 rounded-lg text-sm bg-slate-50 dark:bg-slate-700"><option value="morning">Morning</option><option value="day">Day</option><option value="swing">Swing</option><option value="night">Night</option></select>
     <Lbl>Days Off</Lbl><div className="flex gap-1 mt-1">{["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map((d, i) => { const di = [6,0,1,2,3,4,5][i]; return <button key={d} className={"px-2 py-1 rounded-md text-[10px] font-semibold border " + (offDays.includes(di) ? "bg-indigo-500 text-white border-indigo-500" : "border-slate-200 dark:border-slate-600 text-slate-500")} onClick={() => setOffDays((p) => p.includes(di) ? p.filter((x) => x !== di) : [...p, di])}>{d}</button>; })}</div>
-    <Lbl>Case Types</Lbl><div className="flex gap-1 mt-1 flex-wrap">{caseTypes.map((ct) => <button key={ct.key} className={"px-2.5 py-1 rounded-lg text-[10px] font-bold border " + (trained[ct.key] ? "text-white border-transparent" : "border-slate-200 dark:border-slate-600 text-slate-500")} style={trained[ct.key] ? { background: ct.color } : {}} onClick={() => setTrained((p) => ({ ...p, [ct.key]: !p[ct.key] }))}>{ct.label}</button>)}</div>
+    <Lbl>Case Types</Lbl><div className="flex gap-1 mt-1 flex-wrap">{caseTypes.map((ct: CaseTypeConfig) => <button key={ct.key} className={"px-2.5 py-1 rounded-lg text-[10px] font-bold border " + (trained[ct.key] ? "text-white border-transparent" : "border-slate-200 dark:border-slate-600 text-slate-500")} style={trained[ct.key] ? { background: ct.color } : {}} onClick={() => setTrained((p) => ({ ...p, [ct.key]: !p[ct.key] }))}>{ct.label}</button>)}</div>
     <p className="text-[10px] text-amber-500 mt-2"><i className="fa-solid fa-triangle-exclamation mr-1" />Overwrites all selected</p>
     <div className="flex gap-1.5 mt-3 justify-end"><button className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold" onClick={onClose}>Cancel</button><button className="px-3 py-1.5 rounded-lg bg-indigo-500 text-white text-xs font-semibold" onClick={() => { onApply(sel, start, end, type, offDays, trained); onClose(); }}><i className="fa-solid fa-check-double mr-1" />Apply</button></div>
   </Overlay>;
@@ -385,7 +406,7 @@ function AddModal({ org, caseTypes, onAdd, onClose }: any) {
     <Lbl>Manager</Lbl><select value={gi} onChange={(e) => setGi(Number(e.target.value))} className="w-full p-1.5 border border-slate-200 dark:border-slate-600 rounded-lg text-sm bg-slate-50 dark:bg-slate-700">{org.map((g: any, i: number) => <option key={i} value={i}>{g.mgr.name}</option>)}</select>
     <Lbl>Shift</Lbl><div className="flex gap-1.5"><input type="time" value={start} onChange={(e) => setStart(e.target.value)} className="flex-1 p-1.5 border border-slate-200 dark:border-slate-600 rounded-lg text-sm bg-slate-50 dark:bg-slate-700" step={1800} /><input type="time" value={end} onChange={(e) => setEnd(e.target.value)} className="flex-1 p-1.5 border border-slate-200 dark:border-slate-600 rounded-lg text-sm bg-slate-50 dark:bg-slate-700" step={1800} /></div>
     <Lbl>Days Off</Lbl><div className="flex gap-1 mt-1">{["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map((d, i) => { const di = [6,0,1,2,3,4,5][i]; return <button key={d} className={"px-2 py-1 rounded-md text-[10px] font-semibold border " + (offDays.includes(di) ? "bg-indigo-500 text-white border-indigo-500" : "border-slate-200 dark:border-slate-600 text-slate-500")} onClick={() => setOffDays((p) => p.includes(di) ? p.filter((x) => x !== di) : [...p, di])}>{d}</button>; })}</div>
-    <Lbl>Trained On</Lbl><div className="flex gap-1 mt-1 flex-wrap">{caseTypes.map((ct) => <button key={ct.key} className={"px-2.5 py-1 rounded-lg text-[10px] font-bold border " + (trained[ct.key] ? "text-white border-transparent" : "border-slate-200 dark:border-slate-600 text-slate-500")} style={trained[ct.key] ? { background: ct.color } : {}} onClick={() => setTrained((p) => ({ ...p, [ct.key]: !p[ct.key] }))}>{ct.label}</button>)}</div>
+    <Lbl>Trained On</Lbl><div className="flex gap-1 mt-1 flex-wrap">{caseTypes.map((ct: CaseTypeConfig) => <button key={ct.key} className={"px-2.5 py-1 rounded-lg text-[10px] font-bold border " + (trained[ct.key] ? "text-white border-transparent" : "border-slate-200 dark:border-slate-600 text-slate-500")} style={trained[ct.key] ? { background: ct.color } : {}} onClick={() => setTrained((p) => ({ ...p, [ct.key]: !p[ct.key] }))}>{ct.label}</button>)}</div>
     <div className="flex gap-1.5 mt-3.5 justify-end"><button className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold" onClick={onClose}>Cancel</button><button className="px-3 py-1.5 rounded-lg bg-indigo-500 text-white text-xs font-semibold" onClick={() => { if (!login.trim()) return; onAdd(gi, login.trim(), start, end, offDays, trained); onClose(); }}><i className="fa-solid fa-plus mr-1" />Add</button></div>
   </Overlay>;
 }
@@ -401,18 +422,40 @@ function AddGroupModal({ onAdd, onClose }: any) {
 
 
 
-const PRESET_COLORS = ["#ef4444","#f97316","#f59e0b","#22c55e","#06b6d4","#3b82f6","#8b5cf6","#ec4899","#14b8a6","#64748b"];
+const PRESET_COLORS = [
+  "#e6194b","#3cb44b","#ffe119","#4363d8","#f58231",
+  "#911eb4","#42d4f4","#f032e6","#bfef45","#fabed4",
+  "#469990","#dcbeff","#9A6324","#fffac8","#800000",
+  "#aaffc3","#808000","#ffd8b1","#000075","#a9a9a9",
+];
+
+const LIGHT_COLORS = new Set(["#ffe119","#fabed4","#bfef45","#fffac8","#aaffc3","#ffd8b1","#dcbeff","#a9a9a9"]);
+function badgeTextColor(bg: string): string { return LIGHT_COLORS.has(bg?.toLowerCase()) || LIGHT_COLORS.has(bg) ? "#1e293b" : "#ffffff"; }
+
 
 function SettingsModal({ caseTypes, onSave, onClose }: { caseTypes: CaseTypeConfig[]; onSave: (ct: CaseTypeConfig[]) => void; onClose: () => void }) {
-  const [types, setTypes] = useState<CaseTypeConfig[]>(caseTypes.map(ct => ({...ct})));
+  // Auto-assign unique colors — detect duplicates and re-assign
+  const [types, setTypes] = useState<CaseTypeConfig[]>(() => {
+    const seen = new Set<string>();
+    return caseTypes.map((ct: any, i: number) => {
+      const hasDupe = seen.has(ct.color);
+      seen.add(ct.color);
+      return { ...ct, color: hasDupe || !ct.color ? PRESET_COLORS[i % PRESET_COLORS.length] : ct.color };
+    });
+  });
   const [newLabel, setNewLabel] = useState("");
-  const [newColor, setNewColor] = useState("#3b82f6");
+
+  // Auto-pick next unique color based on how many types exist
+  const nextAutoColor = () => PRESET_COLORS[types.length % PRESET_COLORS.length];
+  const [newColor, setNewColor] = useState(nextAutoColor());
 
   const addType = () => {
     if (!newLabel.trim()) return;
     const key = newLabel.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_");
     if (types.some(t => t.key === key)) return;
-    setTypes([...types, { key, label: newLabel.trim(), color: newColor }]);
+    const added = [...types, { key, label: newLabel.trim(), color: newColor }];
+    setTypes(added);
+    setNewColor(PRESET_COLORS[added.length % PRESET_COLORS.length]);
     setNewLabel("");
   };
   const removeType = (key: string) => setTypes(types.filter(t => t.key !== key));
@@ -424,7 +467,7 @@ function SettingsModal({ caseTypes, onSave, onClose }: { caseTypes: CaseTypeConf
       <h3 className="text-sm font-bold mb-3 flex items-center gap-1.5"><i className="fa-solid fa-gear text-indigo-500" /> Manage Case Types</h3>
       <p className="text-[10px] text-slate-400 mb-3">Add, rename, recolor, or remove case types. Click the color circle to change it.</p>
       <div className="space-y-2 mb-4">
-        {types.map((ct) => (
+        {types.map((ct: CaseTypeConfig) => (
           <div key={ct.key} className="flex items-center gap-2 p-2 bg-slate-50 dark:bg-slate-700 rounded-lg">
             <div className="w-6 h-6 rounded-full cursor-pointer border-2 border-white shadow-sm shrink-0" style={{ background: ct.color }} onClick={() => cycleColor(ct.key, ct.color)} title="Click to cycle color" />
             <input type="text" value={ct.label} onChange={(e) => updateLabel(ct.key, e.target.value)} className="flex-1 px-2 py-1 border border-slate-200 dark:border-slate-600 rounded-md text-xs bg-white dark:bg-slate-800 outline-none focus:border-indigo-400" />
@@ -445,6 +488,248 @@ function SettingsModal({ caseTypes, onSave, onClose }: { caseTypes: CaseTypeConf
         <button className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-xs font-semibold" onClick={onClose}>Cancel</button>
         <button className="px-3 py-1.5 rounded-lg bg-indigo-500 text-white text-xs font-semibold" onClick={() => onSave(types)}><i className="fa-solid fa-check mr-1" />Save Changes</button>
       </div>
+    </Overlay>
+  );
+}
+
+
+function BulkUploadModal({ caseTypes, onImport, onClose }: { caseTypes: CaseTypeConfig[]; onImport: (org: OrgData, ct: CaseTypeConfig[]) => void; onClose: () => void }) {
+  const [preview, setPreview] = useState<OrgData>([]);
+  const [newCaseTypes, setNewCaseTypes] = useState<CaseTypeConfig[]>([]);
+  const [error, setError] = useState("");
+  const [step, setStep] = useState<"upload" | "preview">("upload");
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const TEMPLATE_CSV = `is_manager,login,name,shift_start,shift_end,shift_type,days_off,case_types
+YES,manager1,Manager Name,08:00,17:00,day,"Sat,Sun","CN CFP,ROW CFP"
+NO,agent1,Agent Name,06:00,14:00,morning,"Fri,Sat","CN CFP,ROW CFP,Rev SP"
+NO,agent2,Agent Name 2,14:00,22:00,swing,"Sat,Sun","CN CFP,Rev SP,Kibana"
+YES,manager2,Manager B,09:00,18:00,day,"Sat,Sun","Rev SP,Kibana,Paragon"
+NO,agent3,Agent Name 3,09:30,18:30,day,"Sat,Sun","Rev SP,Kibana"`;
+
+  const downloadTemplate = () => {
+    const blob = new Blob([TEMPLATE_CSV], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "schedule_template.csv"; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const DAY_MAP: Record<string, number> = { mon: 0, tue: 1, wed: 2, thu: 3, fri: 4, sat: 5, sun: 6, monday: 0, tuesday: 1, wednesday: 2, thursday: 3, friday: 4, saturday: 5, sunday: 6 };
+
+  const parseCSV = (text: string) => {
+    const lines = text.trim().split("\n").map(l => l.trim()).filter(l => l.length > 0);
+    if (lines.length < 2) { setError("CSV must have a header row + at least 1 data row"); return; }
+
+    // Parse header
+    const header = lines[0].toLowerCase().split(",").map(h => h.trim().replace(/"/g, ""));
+    const colIdx = (name: string) => header.indexOf(name);
+    const iMgr = colIdx("is_manager"); const iLogin = colIdx("login"); const iName = colIdx("name");
+    const iStart = colIdx("shift_start"); const iEnd = colIdx("shift_end"); const iType = colIdx("shift_type");
+    const iOff = colIdx("days_off"); const iCt = colIdx("case_types");
+
+    if (iLogin === -1 || iName === -1) { setError("CSV must have 'login' and 'name' columns"); return; }
+
+    // Parse rows (handle quoted fields with commas)
+    const parseRow = (line: string): string[] => {
+      const fields: string[] = []; let current = ""; let inQuotes = false;
+      for (const ch of line) {
+        if (ch === '"') { inQuotes = !inQuotes; }
+        else if (ch === ',' && !inQuotes) { fields.push(current.trim()); current = ""; }
+        else { current += ch; }
+      }
+      fields.push(current.trim());
+      return fields;
+    };
+
+    const groups: OrgData = [];
+    const allCaseTypeNames = new Set<string>();
+    let currentGroup: any = null;
+    const colors = ["#e6194b","#3cb44b","#eab308","#4363d8","#f58231","#911eb4","#42d4f4","#f032e6","#bfef45","#fabed4","#469990","#dcbeff","#9A6324","#fffac8","#800000","#aaffc3","#808000","#ffd8b1","#000075","#a9a9a9"];
+    let colorIdx = 0;
+
+    for (let i = 1; i < lines.length; i++) {
+      const fields = parseRow(lines[i]);
+      const isMgr = iMgr >= 0 ? (fields[iMgr] || "").toUpperCase() === "YES" || (fields[iMgr] || "").toUpperCase() === "TRUE" : (i === 1 || !currentGroup);
+      const login = fields[iLogin] || "unknown" + i;
+      const name = fields[iName] || login;
+      const shiftStart = iStart >= 0 ? (fields[iStart] || "08:00") : "08:00";
+      const shiftEnd = iEnd >= 0 ? (fields[iEnd] || "17:00") : "17:00";
+      const shiftType = (iType >= 0 ? (fields[iType] || "day") : "day") as Shift["t"];
+      const offStr = iOff >= 0 ? (fields[iOff] || "") : "";
+      const ctStr = iCt >= 0 ? (fields[iCt] || "") : "";
+
+      // Parse days off
+      const offDays: number[] = [];
+      if (offStr) {
+        offStr.split(/[,;]+/).forEach(d => {
+          const key = d.trim().toLowerCase();
+          if (DAY_MAP[key] !== undefined) offDays.push(DAY_MAP[key]);
+        });
+      }
+
+      // Parse case types
+      const trained: CaseTypes = {};
+      if (ctStr) {
+        ctStr.split(/[,;]+/).forEach(ct => {
+          const label = ct.trim();
+          if (label) {
+            const key = label.toLowerCase().replace(/[^a-z0-9]+/g, "_");
+            trained[key] = true;
+            allCaseTypeNames.add(label);
+          }
+        });
+      }
+
+      const member: Member = {
+        id: generateId(), login, name, note: "",
+        color: colors[colorIdx++ % colors.length],
+        trained, shifts: makeShifts(shiftStart, shiftEnd, shiftType, offDays), off: offDays,
+      };
+
+      if (isMgr) {
+        currentGroup = { id: generateId(), collapsed: false, mgr: member, members: [] };
+        groups.push(currentGroup);
+      } else {
+        if (!currentGroup) {
+          currentGroup = { id: generateId(), collapsed: false, mgr: { ...member, note: "Auto-manager" }, members: [] };
+          groups.push(currentGroup);
+        }
+        currentGroup.members.push(member);
+      }
+    }
+
+    if (groups.length === 0) { setError("No valid data rows found"); return; }
+
+    // Build case type configs from discovered names
+    const existingKeys = new Set(caseTypes.map(ct => ct.key));
+    const newCt: CaseTypeConfig[] = [...caseTypes];
+    let ctColorIdx = caseTypes.length;
+    allCaseTypeNames.forEach(label => {
+      const key = label.toLowerCase().replace(/[^a-z0-9]+/g, "_");
+      if (!existingKeys.has(key)) {
+        newCt.push({ key, label, color: colors[ctColorIdx++ % colors.length] });
+      }
+    });
+
+    setPreview(groups);
+    setNewCaseTypes(newCt);
+    setError("");
+    setStep("preview");
+  };
+
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => { parseCSV(ev.target?.result as string); };
+    reader.readAsText(file);
+  };
+
+  const totalPeople = preview.reduce((sum, g) => sum + 1 + g.members.length, 0);
+
+  return (
+    <Overlay onClose={onClose}>
+      <h3 className="text-sm font-bold mb-3 flex items-center gap-1.5">
+        <i className="fa-solid fa-file-arrow-up text-green-500" /> Bulk Schedule Upload
+      </h3>
+
+      {step === "upload" && <>
+        <p className="text-[11px] text-slate-400 mb-4 leading-relaxed">
+          Upload a CSV file to import teams, members, shifts, and case types all at once.
+          Download the template first to see the expected format.
+        </p>
+
+        {/* Template section */}
+        <div className="bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg p-3 mb-4">
+          <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-2">CSV Template Format</div>
+          <div className="text-[9px] font-mono text-slate-400 bg-white dark:bg-slate-800 rounded p-2 overflow-x-auto mb-3 leading-relaxed" style={{whiteSpace:"pre"}}>is_manager,login,name,shift_start,shift_end,shift_type,days_off,case_types{`
+YES,mgr1,Jane Smith,08:00,17:00,day,"Sat,Sun","CN CFP,ROW CFP"
+NO,agent1,John Doe,06:00,14:00,morning,"Fri,Sat","CN CFP,Rev SP"
+NO,agent2,Bob Lee,14:00,22:00,swing,"Sat,Sun","CN CFP,Kibana"`}</div>
+          <div className="flex gap-2">
+            <button className="px-3 py-1.5 rounded-lg bg-green-500 text-white text-xs font-semibold flex items-center gap-1" onClick={downloadTemplate}>
+              <i className="fa-solid fa-download" /> Download Template
+            </button>
+          </div>
+        </div>
+
+        <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-2">Column Guide</div>
+        <div className="grid grid-cols-2 gap-1 mb-4 text-[10px]">
+          <div className="bg-slate-50 dark:bg-slate-700 rounded px-2 py-1"><b>is_manager</b> — YES/NO</div>
+          <div className="bg-slate-50 dark:bg-slate-700 rounded px-2 py-1"><b>login</b> — unique alias</div>
+          <div className="bg-slate-50 dark:bg-slate-700 rounded px-2 py-1"><b>name</b> — display name</div>
+          <div className="bg-slate-50 dark:bg-slate-700 rounded px-2 py-1"><b>shift_start</b> — HH:MM (24hr)</div>
+          <div className="bg-slate-50 dark:bg-slate-700 rounded px-2 py-1"><b>shift_end</b> — HH:MM (24hr)</div>
+          <div className="bg-slate-50 dark:bg-slate-700 rounded px-2 py-1"><b>shift_type</b> — morning/day/swing</div>
+          <div className="bg-slate-50 dark:bg-slate-700 rounded px-2 py-1"><b>days_off</b> — "Sat,Sun" (quoted)</div>
+          <div className="bg-slate-50 dark:bg-slate-700 rounded px-2 py-1"><b>case_types</b> — "Type1,Type2"</div>
+        </div>
+
+        <p className="text-[10px] text-amber-500 mb-3 flex items-center gap-1"><i className="fa-solid fa-triangle-exclamation" /> Rows after a YES row become that manager's direct reports until the next YES row.</p>
+
+        {/* Upload */}
+        <div className="border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg p-6 text-center cursor-pointer hover:border-indigo-400 transition" onClick={() => fileRef.current?.click()}>
+          <i className="fa-solid fa-cloud-arrow-up text-2xl text-slate-400 mb-2 block" />
+          <div className="text-xs font-semibold text-slate-500">Click to upload CSV file</div>
+          <div className="text-[10px] text-slate-400 mt-1">or drag and drop</div>
+          <input ref={fileRef} type="file" accept=".csv,.txt" className="hidden" onChange={handleFile} />
+        </div>
+
+        {error && <div className="mt-3 p-2 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg text-xs text-red-500 flex items-center gap-1"><i className="fa-solid fa-circle-exclamation" /> {error}</div>}
+      </>}
+
+      {step === "preview" && <>
+        <div className="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-lg p-3 mb-4">
+          <div className="text-xs font-bold text-green-600 mb-1"><i className="fa-solid fa-check-circle mr-1" /> CSV parsed successfully!</div>
+          <div className="text-[10px] text-green-600">{preview.length} manager group(s) | {totalPeople} total people | {newCaseTypes.length} case types</div>
+        </div>
+
+        <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-2">Preview</div>
+        <div className="max-h-60 overflow-y-auto space-y-2 mb-4">
+          {preview.map((g: any) => (
+            <div key={g.id} className="bg-slate-50 dark:bg-slate-700 rounded-lg p-2">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-6 h-6 rounded-full flex items-center justify-center text-[8px] font-bold text-white" style={{background: g.mgr.color}}>{g.mgr.login.slice(0,2).toUpperCase()}</div>
+                <div>
+                  <div className="text-[11px] font-bold text-indigo-500">{g.mgr.name} <span className="text-[9px] text-slate-400 font-normal">({g.mgr.login})</span></div>
+                  <div className="text-[9px] text-slate-400">Manager | {g.mgr.shifts[0]?.s || "?"}-{g.mgr.shifts[0]?.e || "?"}</div>
+                </div>
+              </div>
+              {g.members.map((m: any) => (
+                <div key={m.id} className="flex items-center gap-2 ml-4 mt-1">
+                  <div className="w-4 h-4 rounded-full flex items-center justify-center text-[6px] font-bold text-white" style={{background: m.color}}>{m.login.slice(0,2).toUpperCase()}</div>
+                  <div className="text-[10px]">{m.name} <span className="text-slate-400">({m.login}) | {m.shifts[0]?.s || "?"}-{m.shifts[0]?.e || "?"}</span></div>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+
+        {newCaseTypes.length > caseTypes.length && (
+          <div className="mb-3">
+            <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">New case types discovered</div>
+            <div className="flex gap-1 flex-wrap">
+              {newCaseTypes.slice(caseTypes.length).map((ct: any) => (
+                <span key={ct.key} className="text-[9px] font-bold px-2 py-0.5 rounded text-white" style={{background: ct.color}}>{ct.label}</span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <p className="text-[10px] text-amber-500 mb-3 flex items-center gap-1"><i className="fa-solid fa-triangle-exclamation" /> This will replace ALL existing schedule data</p>
+
+        <div className="flex gap-1.5 justify-end">
+          <button className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-xs font-semibold" onClick={() => setStep("upload")}>Back</button>
+          <button className="px-3 py-1.5 rounded-lg bg-green-500 text-white text-xs font-semibold flex items-center gap-1" onClick={() => onImport(preview, newCaseTypes)}>
+            <i className="fa-solid fa-check-double mr-1" /> Import {totalPeople} People
+          </button>
+        </div>
+      </>}
+
+      {step === "upload" && <div className="flex gap-1.5 mt-4 justify-end">
+        <button className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-xs font-semibold" onClick={onClose}>Cancel</button>
+      </div>}
     </Overlay>
   );
 }

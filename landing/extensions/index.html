@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Browser Extensions — Remote Ninja</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="/auth/theme.css">
+<script src="/auth/theme.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;background:var(--bg-primary);color:var(--text-primary);padding:32px 20px}
+a{text-decoration:none}
+
+.top-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
+.back{display:inline-flex;align-items:center;gap:6px;color:var(--text-secondary);font-size:13px;font-weight:600;transition:color .2s}
+.back:hover{color:var(--text-link)}
+
+.header{text-align:center;max-width:600px;margin:0 auto 40px}
+.header h1{font-size:32px;font-weight:800;letter-spacing:-.02em;margin-bottom:8px;color:var(--text-heading)}
+.header h1 span{background:linear-gradient(135deg,#06b6d4,#3b82f6);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.header p{font-size:14px;color:var(--text-secondary);line-height:1.6}
+.ext-count{font-size:12px;color:var(--text-tertiary);margin-top:8px}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px;max-width:1100px;margin:0 auto}
+
+.ext-card{background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:24px;transition:all .2s;position:relative;overflow:hidden;box-shadow:var(--shadow-sm)}
+.ext-card:hover{border-color:var(--border-strong);transform:translateY(-2px);box-shadow:var(--shadow-md)}
+.ext-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--c1,#6366f1),var(--c2,#8b5cf6))}
+
+.ext-top{display:flex;align-items:flex-start;gap:14px;margin-bottom:16px}
+.ext-icon{width:52px;height:52px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;color:#fff;flex-shrink:0}
+.ext-info h3{font-size:16px;font-weight:700}
+.ext-info .version{font-size:11px;color:var(--text-tertiary);font-family:'SF Mono',Consolas,monospace}
+.ext-desc{font-size:13px;color:var(--text-secondary);line-height:1.6;margin-bottom:16px}
+
+.ext-tags{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:16px}
+.tag{padding:3px 8px;border-radius:6px;font-size:10px;font-weight:600;background:var(--bg-secondary);color:var(--text-secondary)}
+.tag.active{background:var(--success-bg);color:var(--success);border:1px solid var(--success-border)}
+
+.ext-features{margin-bottom:16px}
+.ext-features li{font-size:12px;color:var(--text-secondary);padding:3px 0;padding-left:16px;position:relative;list-style:none}
+.ext-features li::before{content:'\f00c';font-family:'Font Awesome 6 Free';font-weight:900;font-size:9px;color:var(--success);position:absolute;left:0;top:5px}
+
+.download-row{display:flex;gap:8px;flex-wrap:wrap}
+.dl-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:600;transition:all .15s;border:1px solid transparent}
+.dl-chrome{background:rgba(66,133,244,.08);color:#4285f4;border-color:rgba(66,133,244,.25)}.dl-chrome:hover{background:rgba(66,133,244,.15)}
+.dl-firefox{background:rgba(255,127,0,.08);color:#ff7f00;border-color:rgba(255,127,0,.25)}.dl-firefox:hover{background:rgba(255,127,0,.15)}
+.dl-disabled{opacity:.4;cursor:not-allowed;pointer-events:none}
+
+.loading{text-align:center;padding:60px;color:var(--text-tertiary);font-size:14px}
+.loading .spinner{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 16px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.empty{text-align:center;padding:60px;color:var(--text-tertiary)}
+.empty i{font-size:48px;margin-bottom:16px;display:block;opacity:.3}
+
+.install-section{max-width:1100px;margin:48px auto 0;background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:28px;box-shadow:var(--shadow-sm)}
+.install-section h2{font-size:18px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px;color:var(--text-heading)}
+.install-section h2 i{color:var(--warning)}
+.step{display:flex;gap:12px;margin-bottom:16px;align-items:flex-start}
+.step-num{width:28px;height:28px;border-radius:50%;background:var(--bg-secondary);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--text-link);flex-shrink:0;margin-top:2px;border:1px solid var(--border)}
+.step-content h4{font-size:13px;font-weight:700;margin-bottom:4px}
+.step-content p{font-size:12px;color:var(--text-secondary);line-height:1.5}
+.step-content code{background:var(--bg-code);padding:2px 6px;border-radius:4px;font-size:11px;color:var(--code-text);font-family:'SF Mono',Consolas,monospace}
+
+.footer{text-align:center;margin-top:48px;font-size:12px;color:var(--text-tertiary)}
+.footer a{color:var(--text-link)}
+</style>
+<script src="/auth/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/amazon-cognito-identity-js@6/dist/amazon-cognito-identity.min.js"></script>
+<script src="/auth/guard.js"></script>
+</head>
+<body>
+
+<div class="top-bar">
+  <a href="/" class="back"><i class="fa-solid fa-arrow-left"></i> Back to Remote Ninja</a>
+  <span id="theme-toggle-slot"></span>
+</div>
+
+<div class="header">
+  <h1><i class="fa-solid fa-puzzle-piece" style="color:#06b6d4;margin-right:8px;font-size:28px"></i>Browser <span>Extensions</span></h1>
+  <p>Chrome and Firefox extensions built by the Remote Ninja team. Download, install, and boost your workflow.</p>
+  <div class="ext-count" id="ext-count"></div>
+</div>
+
+<div id="ext-grid" class="grid">
+  <div class="loading"><div class="spinner"></div>Loading extensions...</div>
+</div>
+
+<!-- Install Instructions -->
+<div class="install-section">
+  <h2><i class="fa-solid fa-screwdriver-wrench"></i> Installation Guide</h2>
+  <h3 style="font-size:14px;font-weight:700;margin-bottom:12px;color:#4285f4"><i class="fa-brands fa-chrome" style="margin-right:6px"></i>Chrome</h3>
+  <div class="step"><div class="step-num">1</div><div class="step-content"><h4>Download the .zip file</h4><p>Click the Chrome download button for the extension you want.</p></div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-content"><h4>Extract the zip</h4><p>Right-click the .zip → <b>Extract All</b>. Remember where you saved it.</p></div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-content"><h4>Open Chrome Extensions</h4><p>Go to <code>chrome://extensions</code>. Enable <b>Developer mode</b> (top-right toggle).</p></div></div>
+  <div class="step"><div class="step-num">4</div><div class="step-content"><h4>Load the extension</h4><p>Click <b>Load unpacked</b> → select the extracted folder. Done!</p></div></div>
+
+  <h3 style="font-size:14px;font-weight:700;margin:24px 0 12px;color:#ff7f00"><i class="fa-brands fa-firefox-browser" style="margin-right:6px"></i>Firefox</h3>
+  <div class="step"><div class="step-num">1</div><div class="step-content"><h4>Download the .xpi file</h4><p>Click the Firefox button. Firefox may ask to install directly — click <b>Add</b>.</p></div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-content"><h4>Allow the install</h4><p>If prompted, click <b>Install Anyway</b> or set <code>xpinstall.signatures.required = false</code> in <code>about:config</code>.</p></div></div>
+</div>
+
+<div class="footer">
+  <p><a href="/">Remote Ninja</a> &middot; Browser Extensions &middot; 2026</p>
+</div>
+
+<script>
+ThemeManager.injectToggle('theme-toggle-slot');
+
+var API_URL = "https://zta7che674.execute-api.us-east-1.amazonaws.com/api";
+
+function renderCard(ext) {
+  var c1 = (ext.gradient_colors && ext.gradient_colors[0]) || "#6366f1";
+  var c2 = (ext.gradient_colors && ext.gradient_colors[1]) || "#8b5cf6";
+  var icon = ext.icon || "fa-solid fa-puzzle-piece";
+
+  var tagsHtml = '<span class="tag active">Production</span>';
+  (ext.tags || []).forEach(function(t) { tagsHtml += '<span class="tag">' + t + '</span>'; });
+
+  var featHtml = '';
+  (ext.features || []).forEach(function(f) { featHtml += '<li>' + f + '</li>'; });
+
+  var chromeBtn = ext.chrome_url
+    ? '<a href="' + ext.chrome_url + '" class="dl-btn dl-chrome" download><i class="fa-brands fa-chrome"></i> Chrome (.zip)</a>'
+    : '<span class="dl-btn dl-chrome dl-disabled"><i class="fa-brands fa-chrome"></i> No Chrome build</span>';
+
+  var firefoxBtn = '';
+  if (ext.chrome_only) {
+    firefoxBtn = '<span class="dl-btn dl-firefox dl-disabled"><i class="fa-brands fa-firefox-browser"></i> Chrome only</span>';
+  } else if (ext.firefox_url) {
+    firefoxBtn = '<a href="' + ext.firefox_url + '" class="dl-btn dl-firefox" download><i class="fa-brands fa-firefox-browser"></i> Firefox (.xpi)</a>';
+  } else {
+    firefoxBtn = '<span class="dl-btn dl-firefox dl-disabled"><i class="fa-brands fa-firefox-browser"></i> No Firefox build</span>';
+  }
+
+  return '<div class="ext-card" style="--c1:' + c1 + ';--c2:' + c2 + '">' +
+    '<div class="ext-top">' +
+      '<div class="ext-icon" style="background:linear-gradient(135deg,' + c1 + ',' + c2 + ')"><i class="' + icon + '"></i></div>' +
+      '<div class="ext-info"><h3>' + ext.name + '</h3><div class="version">v' + (ext.version || '?') + ' &middot; MV3</div></div>' +
+    '</div>' +
+    '<p class="ext-desc">' + (ext.description || '') + '</p>' +
+    '<div class="ext-tags">' + tagsHtml + '</div>' +
+    (featHtml ? '<ul class="ext-features">' + featHtml + '</ul>' : '') +
+    '<div class="download-row">' + chromeBtn + firefoxBtn + '</div>' +
+  '</div>';
+}
+
+function loadExtensions() {
+  fetch(API_URL + "/extensions")
+    .then(function(r) { return r.json(); })
+    .then(function(result) {
+      var exts = result.data || [];
+      var grid = document.getElementById("ext-grid");
+      var count = document.getElementById("ext-count");
+
+      if (exts.length === 0) {
+        grid.innerHTML = '<div class="empty"><i class="fa-solid fa-puzzle-piece"></i><p>No extensions yet. Add some from the admin panel.</p></div>';
+        count.textContent = "0 extensions";
+        return;
+      }
+
+      count.textContent = exts.length + " extension" + (exts.length > 1 ? "s" : "") + " available";
+      var html = "";
+      exts.forEach(function(ext) { html += renderCard(ext); });
+      grid.innerHTML = html;
+    })
+    .catch(function(err) {
+      console.error("Failed to load extensions:", err);
+      document.getElementById("ext-grid").innerHTML =
+        '<div class="empty"><i class="fa-solid fa-triangle-exclamation"></i><p>Could not load extensions. The API may be unavailable.</p></div>';
+    });
+}
+
+loadExtensions();
+</script>
+</body>
+</html>

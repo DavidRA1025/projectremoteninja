@@ -1,0 +1,7 @@
+{
+  "Name": "schedule-live-oac",
+  "Description": "OAC for Schedule Live S3 bucket",
+  "SigningProtocol": "sigv4",
+  "SigningBehavior": "always",
+  "OriginAccessControlOriginType": "s3"
+}

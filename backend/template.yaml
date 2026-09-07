@@ -1,0 +1,226 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  ScheduleLive Backend — API Gateway + Lambda + DynamoDB + Cognito Auth
+  Real-time team scheduling tool backend
+
+Globals:
+  Function:
+    Timeout: 15
+    Runtime: python3.12
+    MemorySize: 256
+    Environment:
+      Variables:
+        TABLE_NAME: !Ref ScheduleLiveTable
+        CORS_ORIGIN: !Ref CorsOrigin
+
+Parameters:
+  CorsOrigin:
+    Type: String
+    Default: '*'
+    Description: >
+      Allowed CORS origin. Set to your frontend URL in production
+      (e.g. https://amazon-vrmo.com). Use '*' for development.
+
+Resources:
+  # ============================================
+  # Cognito User Pool — Auth for the whole site
+  # ============================================
+  ScheduleLiveUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: ScheduleLiveUsers
+      AutoVerifiedAttributes:
+        - email
+      UsernameAttributes:
+        - email
+      # Invite-only: only admins can create users (no public self-registration).
+      # Matches the Shepherd security remediation for
+      # CloudSecDetections:CognitoSelfRegistrationEnabled — keep this so redeploys
+      # don't re-enable self sign-up.
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: true
+      UsernameConfiguration:
+        CaseSensitive: false
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireUppercase: true
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+      Schema:
+        - Name: email
+          Required: true
+          Mutable: true
+        - Name: name
+          Required: false
+          Mutable: true
+        - Name: role
+          AttributeDataType: String
+          Mutable: true
+          StringAttributeConstraints:
+            MinLength: "1"
+            MaxLength: "20"
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - Name: verified_email
+            Priority: 1
+      EmailConfiguration:
+        EmailSendingAccount: COGNITO_DEFAULT
+      VerificationMessageTemplate:
+        DefaultEmailOption: CONFIRM_WITH_CODE
+        EmailSubject: "Remote Ninja — Verify your email"
+        EmailMessage: "Your verification code is: {####}"
+
+  ScheduleLiveUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: ScheduleLiveWebClient
+      UserPoolId: !Ref ScheduleLiveUserPool
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+        - ALLOW_USER_SRP_AUTH
+      PreventUserExistenceErrors: ENABLED
+      AccessTokenValidity: 1
+      IdTokenValidity: 1
+      RefreshTokenValidity: 30
+      TokenValidityUnits:
+        AccessToken: hours
+        IdToken: hours
+        RefreshToken: days
+      ReadAttributes:
+        - email
+        - name
+        - custom:role
+      WriteAttributes:
+        - email
+        - name
+
+  # ============================================
+  # DynamoDB Table — Single-table design
+  # ============================================
+  ScheduleLiveTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: ScheduleLive
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
+        - AttributeName: GSI1PK
+          AttributeType: S
+        - AttributeName: GSI1SK
+          AttributeType: S
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: GSI1
+          KeySchema:
+            - AttributeName: GSI1PK
+              KeyType: HASH
+            - AttributeName: GSI1SK
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      Tags:
+        - Key: Project
+          Value: ScheduleLive
+
+  # ============================================
+  # Lambda Function — Single handler for all API routes
+  # ============================================
+  ApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: ScheduleLive-API
+      CodeUri: functions/
+      Handler: api_handler.lambda_handler
+      Architectures:
+        - arm64
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ScheduleLiveTable
+        - S3CrudPolicy:
+            BucketName: schedule-live-frontend-chenwayi
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - cognito-idp:AdminListUsers
+                - cognito-idp:AdminGetUser
+                - cognito-idp:AdminUpdateUserAttributes
+                - cognito-idp:AdminDisableUser
+                - cognito-idp:AdminEnableUser
+                - cognito-idp:AdminDeleteUser
+                - cognito-idp:AdminCreateUser
+              Resource: !GetAtt ScheduleLiveUserPool.Arn
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref ScheduleLiveTable
+          S3_BUCKET: schedule-live-frontend-chenwayi
+          USER_POOL_ID: !Ref ScheduleLiveUserPool
+          USER_POOL_CLIENT_ID: !Ref ScheduleLiveUserPoolClient
+          USER_POOL_REGION: !Ref AWS::Region
+      Events:
+        ApiCatchAll:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /{proxy+}
+            Method: ANY
+        ApiRoot:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /
+            Method: ANY
+
+  # ============================================
+  # HTTP API Gateway with CORS
+  # ============================================
+  HttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: api
+      CorsConfiguration:
+        AllowOrigins:
+          - !Ref CorsOrigin
+        AllowMethods:
+          - GET
+          - PUT
+          - POST
+          - DELETE
+          - OPTIONS
+        AllowHeaders:
+          - Content-Type
+          - Authorization
+          - X-Requested-With
+        MaxAge: 3600
+
+Outputs:
+  ApiUrl:
+    Description: API Gateway endpoint URL
+    Value: !Sub "https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com/api"
+  TableName:
+    Description: DynamoDB table name
+    Value: !Ref ScheduleLiveTable
+  UserPoolId:
+    Description: Cognito User Pool ID
+    Value: !Ref ScheduleLiveUserPool
+  UserPoolClientId:
+    Description: Cognito User Pool Client ID
+    Value: !Ref ScheduleLiveUserPoolClient
+  UserPoolArn:
+    Description: Cognito User Pool ARN
+    Value: !GetAtt ScheduleLiveUserPool.Arn

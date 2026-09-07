@@ -5,3 +5,8 @@ out/
 .env.local
 *.tsbuildinfo
 next-env.d.ts
+
+# SAM build artifacts
+backend/.aws-sam/
+backend/functions/__pycache__/
+*.pyc

@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Remote Ninja — Approve Sign In</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="/auth/theme.css">
+<script src="/auth/theme.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;background:var(--bg-primary);color:var(--text-primary);display:flex;align-items:center;justify-content:center;padding:24px}
+
+.card{width:100%;max-width:400px;background:var(--bg-card);border:1px solid var(--border);border-radius:24px;padding:40px 32px;text-align:center;box-shadow:var(--shadow-lg)}
+
+.logo{width:80px;height:80px;border-radius:16px;object-fit:cover;margin:0 auto 16px;display:block;box-shadow:0 8px 24px rgba(0,0,0,.2)}
+
+h1{font-size:22px;font-weight:800;margin-bottom:4px}
+.brand{margin-bottom:24px}
+.brand .w-remote{color:var(--text-heading)}
+.brand .w-ninja{background:linear-gradient(135deg,#f59e0b,#ef4444,#f59e0b);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+
+.status-icon{width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:28px}
+.status-icon.pending{background:rgba(99,102,241,.12);color:var(--accent)}
+.status-icon.success{background:rgba(34,197,94,.12);color:#22c55e}
+.status-icon.error{background:rgba(239,68,68,.12);color:#ef4444}
+.status-icon.loading{background:rgba(99,102,241,.12);color:var(--accent);animation:pulse 1.5s ease infinite}
+
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+
+.title{font-size:20px;font-weight:700;margin-bottom:8px}
+.desc{font-size:14px;color:var(--text-secondary);margin-bottom:24px;line-height:1.5}
+
+.user-badge{display:inline-flex;align-items:center;gap:8px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;padding:10px 16px;margin-bottom:24px}
+.user-badge .avatar{width:36px;height:36px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px}
+.user-badge .info{text-align:left}
+.user-badge .name{font-weight:600;font-size:14px}
+.user-badge .email{font-size:12px;color:var(--text-tertiary)}
+
+.btn{width:100%;padding:14px;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;border:none;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:8px}
+.btn-approve{background:var(--accent);color:#fff;margin-bottom:10px}
+.btn-approve:hover{background:var(--accent-hover);transform:translateY(-1px)}
+.btn-approve:disabled{opacity:.6;cursor:not-allowed;transform:none}
+.btn-deny{background:transparent;color:var(--text-secondary);border:1px solid var(--border)}
+.btn-deny:hover{border-color:var(--text-tertiary)}
+
+.spinner{display:inline-block;width:18px;height:18px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.result-text{font-size:14px;color:var(--text-secondary);margin-top:8px}
+.result-text.success{color:#22c55e}
+
+.login-link{display:inline-block;margin-top:16px;color:var(--accent);font-size:13px;font-weight:600;text-decoration:none}
+.login-link:hover{text-decoration:underline}
+
+.theme-slot{position:fixed;top:16px;right:16px}
+
+.alert{padding:12px 16px;border-radius:12px;font-size:13px;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.alert-error{background:rgba(239,68,68,.1);color:#ef4444;border:1px solid rgba(239,68,68,.2)}
+</style>
+</head>
+<body>
+<div class="theme-slot" id="theme-slot"></div>
+
+<div class="card">
+  <img src="/logo.png" alt="Remote Ninja" class="logo">
+  <div class="brand">
+    <h1><span class="w-remote">Remote </span><span class="w-ninja">Ninja</span></h1>
+  </div>
+
+  <!-- Loading State -->
+  <div id="state-loading">
+    <div class="status-icon loading"><i class="fa-solid fa-spinner fa-spin"></i></div>
+    <div class="title">Checking session...</div>
+    <div class="desc">Please wait while we verify your identity.</div>
+  </div>
+
+  <!-- Not Logged In State -->
+  <div id="state-not-authed" style="display:none">
+    <div class="status-icon error"><i class="fa-solid fa-lock"></i></div>
+    <div class="title">Sign in required</div>
+    <div class="desc">You need to be signed in on this device to approve a QR login.</div>
+    <a href="/" class="login-link"><i class="fa-solid fa-arrow-right"></i> Go to sign in</a>
+  </div>
+
+  <!-- Approve State -->
+  <div id="state-approve" style="display:none">
+    <div class="status-icon pending"><i class="fa-solid fa-desktop"></i></div>
+    <div class="title">Sign in on another device?</div>
+    <div class="desc">Someone is trying to sign in to Remote Ninja using a QR code. Approve if this was you.</div>
+
+    <div id="alert-box"></div>
+
+    <div class="user-badge" id="user-badge">
+      <div class="avatar" id="user-initial">?</div>
+      <div class="info">
+        <div class="name" id="user-name">Loading...</div>
+        <div class="email" id="user-email">...</div>
+      </div>
+    </div>
+
+    <button class="btn btn-approve" id="approve-btn" onclick="approveLogin()">
+      <span id="approve-text"><i class="fa-solid fa-check"></i> Approve Sign In</span>
+      <span id="approve-spinner" style="display:none"><span class="spinner"></span></span>
+    </button>
+    <button class="btn btn-deny" onclick="denyLogin()">
+      <i class="fa-solid fa-xmark"></i> Deny
+    </button>
+  </div>
+
+  <!-- Success State -->
+  <div id="state-success" style="display:none">
+    <div class="status-icon success"><i class="fa-solid fa-check"></i></div>
+    <div class="title">Approved!</div>
+    <div class="desc">The other device is now signed in. You can close this page.</div>
+    <div class="result-text success" id="approved-info"></div>
+  </div>
+
+  <!-- Expired/Error State -->
+  <div id="state-expired" style="display:none">
+    <div class="status-icon error"><i class="fa-solid fa-clock"></i></div>
+    <div class="title">QR Code Expired</div>
+    <div class="desc">This QR code has expired or is invalid. Please scan a new one.</div>
+    <a href="/" class="login-link"><i class="fa-solid fa-arrow-left"></i> Back to home</a>
+  </div>
+</div>
+
+<script src="/auth/config.js"></script>
+<script>
+(function() {
+  'use strict';
+
+  // Inject theme toggle
+  if (typeof ThemeManager !== 'undefined') ThemeManager.injectToggle('theme-slot');
+
+  function showState(stateId) {
+    ['state-loading','state-not-authed','state-approve','state-success','state-expired'].forEach(function(id) {
+      document.getElementById(id).style.display = id === stateId ? '' : 'none';
+    });
+  }
+
+  function parseJwt(t) {
+    try {
+      var b = t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/');
+      return JSON.parse(decodeURIComponent(atob(b).split('').map(function(c){return '%'+('00'+c.charCodeAt(0).toString(16)).slice(-2)}).join('')));
+    } catch(e) { return null; }
+  }
+
+  function isAuthenticated() {
+    var t = sessionStorage.getItem('sl_id_token');
+    if (!t) return false;
+    var p = parseJwt(t);
+    return p && p.exp && Date.now() < p.exp * 1000;
+  }
+
+  function getUserInfo() {
+    var t = sessionStorage.getItem('sl_id_token');
+    if (!t) return null;
+    var p = parseJwt(t);
+    if (!p) return null;
+    return { email: p.email || '', name: p.name || p.email || '', role: p['custom:role'] || 'member' };
+  }
+
+  // Get token from URL
+  var params = new URLSearchParams(window.location.search);
+  var qrToken = params.get('token') || '';
+
+  if (!qrToken) {
+    showState('state-expired');
+    return;
+  }
+
+  if (!isAuthenticated()) {
+    showState('state-not-authed');
+    return;
+  }
+
+  // User is authenticated — show approval screen
+  var user = getUserInfo();
+  if (user) {
+    document.getElementById('user-initial').textContent = (user.name || user.email || '?')[0].toUpperCase();
+    document.getElementById('user-name').textContent = user.name;
+    document.getElementById('user-email').textContent = user.email;
+  }
+  showState('state-approve');
+
+  // Approve handler
+  window.approveLogin = function() {
+    var btn = document.getElementById('approve-btn');
+    document.getElementById('approve-text').style.display = 'none';
+    document.getElementById('approve-spinner').style.display = '';
+    btn.disabled = true;
+
+    var idToken = sessionStorage.getItem('sl_id_token') || '';
+    var accessToken = sessionStorage.getItem('sl_access_token') || '';
+    var refreshToken = sessionStorage.getItem('sl_refresh_token') || '';
+
+    fetch(AUTH_CONFIG.ApiUrl + '/auth/qr/approve', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + idToken,
+        'X-Access-Token': accessToken,
+        'X-Refresh-Token': refreshToken,
+      },
+      body: JSON.stringify({ token: qrToken })
+    })
+    .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+    .then(function(res) {
+      if (res.ok && res.data.success) {
+        showState('state-success');
+        document.getElementById('approved-info').textContent = 'Signed in as ' + (user ? user.name : '');
+      } else {
+        document.getElementById('approve-text').style.display = '';
+        document.getElementById('approve-spinner').style.display = 'none';
+        btn.disabled = false;
+        var alertBox = document.getElementById('alert-box');
+        alertBox.innerHTML = '<div class="alert alert-error"><i class="fa-solid fa-circle-exclamation"></i> ' + (res.data.error || 'Failed to approve') + '</div>';
+      }
+    })
+    .catch(function(err) {
+      document.getElementById('approve-text').style.display = '';
+      document.getElementById('approve-spinner').style.display = 'none';
+      btn.disabled = false;
+      document.getElementById('alert-box').innerHTML = '<div class="alert alert-error"><i class="fa-solid fa-circle-exclamation"></i> Network error. Please try again.</div>';
+    });
+  };
+
+  window.denyLogin = function() {
+    showState('state-expired');
+    document.querySelector('#state-expired .title').textContent = 'Sign In Denied';
+    document.querySelector('#state-expired .desc').textContent = 'The sign-in request was denied. You can close this page.';
+  };
+
+})();
+</script>
+</body>
+</html>

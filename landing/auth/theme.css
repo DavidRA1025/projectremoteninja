@@ -1,0 +1,205 @@
+/* ====================================================
+   Remote Ninja — Theme System (Light / Dark)
+   ====================================================
+   Include BEFORE any page-specific <style> blocks.
+   All pages must use var(--xxx) instead of hardcoded colors.
+   ==================================================== */
+
+/* ---------- Light theme (default) ---------- */
+:root {
+  --bg-primary: #f8fafc;
+  --bg-secondary: #f1f5f9;
+  --bg-card: #ffffff;
+  --bg-input: #f8fafc;
+  --bg-code: #f1f5f9;
+  --bg-overlay: rgba(100,116,139,.45);
+
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-tertiary: #94a3b8;
+  --text-heading: #0f172a;
+  --text-link: #6366f1;
+  --text-on-accent: #ffffff;
+
+  --accent: #6366f1;
+  --accent-hover: #4f46e5;
+  --accent-light: #818cf8;
+  --accent-bg: rgba(99,102,241,.08);
+  --accent-border: rgba(99,102,241,.25);
+
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --border-subtle: #f1f5f9;
+
+  --success: #22c55e;
+  --success-bg: rgba(34,197,94,.08);
+  --success-border: rgba(34,197,94,.25);
+  --warning: #f59e0b;
+  --warning-bg: rgba(245,158,11,.08);
+  --warning-border: rgba(245,158,11,.25);
+  --danger: #ef4444;
+  --danger-bg: rgba(239,68,68,.08);
+  --danger-border: rgba(239,68,68,.25);
+  --info: #3b82f6;
+  --info-bg: rgba(59,130,246,.08);
+  --info-border: rgba(59,130,246,.25);
+
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.05);
+  --shadow-md: 0 4px 12px rgba(0,0,0,.08);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,.10);
+
+  --nav-bg: rgba(255,255,255,.85);
+  --nav-border: #e2e8f0;
+  --nav-text: #475569;
+
+  --avatar-bg: #6366f1;
+  --avatar-text: #ffffff;
+
+  --toggle-track: #e2e8f0;
+  --toggle-knob: #ffffff;
+
+  --table-header-bg: #f8fafc;
+  --table-row-hover: #f1f5f9;
+
+  --code-text: #0ea5e9;
+
+  --skeleton: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
+}
+
+/* ---------- Dark theme ---------- */
+[data-theme="dark"] {
+  --bg-primary: #0f172a;
+  --bg-secondary: #1e293b;
+  --bg-card: #1e293b;
+  --bg-input: #0f172a;
+  --bg-code: #0f172a;
+  --bg-overlay: rgba(0,0,0,.6);
+
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-tertiary: #64748b;
+  --text-heading: #e0e7ff;
+  --text-link: #818cf8;
+  --text-on-accent: #ffffff;
+
+  --accent: #818cf8;
+  --accent-hover: #6366f1;
+  --accent-light: #a5b4fc;
+  --accent-bg: rgba(99,102,241,.15);
+  --accent-border: rgba(129,140,248,.3);
+
+  --border: #334155;
+  --border-strong: #475569;
+  --border-subtle: rgba(30,41,59,.4);
+
+  --success: #22c55e;
+  --success-bg: rgba(34,197,94,.12);
+  --success-border: rgba(34,197,94,.3);
+  --warning: #f59e0b;
+  --warning-bg: rgba(245,158,11,.12);
+  --warning-border: rgba(245,158,11,.3);
+  --danger: #ef4444;
+  --danger-bg: rgba(239,68,68,.12);
+  --danger-border: rgba(239,68,68,.3);
+  --info: #3b82f6;
+  --info-bg: rgba(59,130,246,.12);
+  --info-border: rgba(59,130,246,.3);
+
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.2);
+  --shadow-md: 0 4px 12px rgba(0,0,0,.25);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,.35);
+
+  --nav-bg: rgba(15,23,42,.85);
+  --nav-border: #334155;
+  --nav-text: #94a3b8;
+
+  --avatar-bg: #6366f1;
+  --avatar-text: #ffffff;
+
+  --toggle-track: #334155;
+  --toggle-knob: #f1f5f9;
+
+  --table-header-bg: #0f172a;
+  --table-row-hover: #334155;
+
+  --code-text: #38bdf8;
+
+  --skeleton: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+}
+
+/* ---------- Global transitions ---------- */
+*,
+*::before,
+*::after {
+  transition: background-color .25s ease, color .25s ease, border-color .25s ease, box-shadow .25s ease;
+}
+/* Opt out specific things that shouldn't transition */
+.no-transition,
+.spinner,
+.spinner::before,
+.spinner::after,
+[class*="fa-spin"] {
+  transition: none !important;
+}
+
+/* ---------- Theme toggle button ---------- */
+.theme-toggle {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  border-radius: 12px;
+  background: var(--toggle-track);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+  flex-shrink: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  outline: none;
+}
+.theme-toggle:hover {
+  border-color: var(--accent);
+}
+.theme-toggle::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--toggle-knob);
+  box-shadow: var(--shadow-sm);
+  transition: transform .3s cubic-bezier(.4,0,.2,1);
+}
+[data-theme="dark"] .theme-toggle::before {
+  transform: translateX(20px);
+}
+.theme-toggle .theme-icon {
+  position: absolute;
+  font-size: 11px;
+  transition: opacity .25s, transform .25s;
+  line-height: 1;
+}
+.theme-toggle .theme-icon-sun {
+  left: 5px;
+  color: #f59e0b;
+  opacity: 1;
+  transform: scale(1) rotate(0deg);
+}
+.theme-toggle .theme-icon-moon {
+  right: 5px;
+  color: #818cf8;
+  opacity: 0;
+  transform: scale(.5) rotate(-90deg);
+}
+[data-theme="dark"] .theme-toggle .theme-icon-sun {
+  opacity: 0;
+  transform: scale(.5) rotate(90deg);
+}
+[data-theme="dark"] .theme-toggle .theme-icon-moon {
+  opacity: 1;
+  transform: scale(1) rotate(0deg);
+}

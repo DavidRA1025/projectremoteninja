@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — Remote Ninja</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="/auth/theme.css">
+<script src="/auth/theme.js"></script>
+<script src="/auth/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/amazon-cognito-identity-js@6/dist/amazon-cognito-identity.min.js"></script>
+<script src="/auth/guard.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;background:var(--bg-primary);color:var(--text-primary);padding:24px}
+.header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px}
+.header-left{display:flex;align-items:center;gap:12px}
+.header-left a{color:var(--text-secondary);text-decoration:none;font-size:13px;display:flex;align-items:center;gap:4px}
+.header-left a:hover{color:var(--text-link)}
+.header h1{font-size:22px;font-weight:800}
+.header h1 i{color:var(--danger)}
+.header-right{display:flex;gap:8px;flex-wrap:wrap}
+.btn{padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;border:1px solid var(--border);background:var(--bg-card);color:var(--text-primary);cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all .15s}
+.btn:hover{border-color:var(--accent);color:var(--text-link)}
+.btn-invite{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn-invite:hover{background:var(--accent-hover);border-color:var(--accent-hover);color:#fff}
+.btn-bulk{background:var(--bg-card);border-color:var(--accent-border);color:var(--accent)}
+.btn-bulk:hover{background:var(--accent-bg);border-color:var(--accent);color:var(--accent)}
+.stats{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}
+.stat{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:10px}
+.stat-num{font-size:22px;font-weight:800;font-family:'SF Mono',Consolas,monospace}
+.stat-label{font-size:10px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+.table-wrap{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+table{width:100%;border-collapse:collapse}
+thead th{background:var(--table-header-bg);padding:10px 14px;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-tertiary);font-weight:700;text-align:left;border-bottom:2px solid var(--border)}
+tbody td{padding:10px 14px;border-bottom:1px solid var(--border-subtle);font-size:13px;vertical-align:middle}
+tbody tr:hover td{background:var(--table-row-hover)}
+.user-cell{display:flex;align-items:center;gap:10px}
+.user-avatar{width:32px;height:32px;border-radius:50%;background:var(--avatar-bg);color:var(--avatar-text);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
+.user-name{font-weight:600}
+.user-email{font-size:11px;color:var(--text-tertiary)}
+.role-select{padding:4px 8px;border-radius:6px;font-size:11px;font-weight:600;border:1px solid var(--border);background:var(--bg-input);color:var(--text-primary);cursor:pointer}
+.role-select:focus{border-color:var(--accent);outline:none}
+.status-badge{padding:3px 8px;border-radius:100px;font-size:10px;font-weight:700}
+.status-enabled{background:var(--success-bg);color:var(--success)}
+.status-disabled{background:var(--danger-bg);color:var(--danger)}
+.status-pending{background:var(--warning-bg);color:var(--warning)}
+.action-btn{padding:4px 8px;border-radius:6px;font-size:11px;font-weight:600;border:1px solid var(--border);background:transparent;cursor:pointer;transition:all .15s}
+.action-btn:hover{border-color:var(--border-strong)}
+.action-disable{color:var(--warning)}
+.action-enable{color:var(--success)}
+.action-delete{color:var(--danger)}
+.action-delete:hover{border-color:var(--danger);background:var(--danger-bg)}
+.loading{text-align:center;padding:40px;color:var(--text-tertiary)}
+.loading .spinner{width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty{text-align:center;padding:40px;color:var(--text-tertiary)}
+.modal-overlay{display:none;position:fixed;inset:0;background:var(--bg-overlay);backdrop-filter:blur(4px);z-index:100;align-items:center;justify-content:center}
+.modal-overlay.show{display:flex}
+.modal{background:var(--bg-card);border:1px solid var(--border);border-radius:20px;padding:32px;width:440px;max-width:90vw;position:relative}
+.modal-wide{width:680px}
+.modal h2{font-size:20px;font-weight:800;margin-bottom:4px}
+.modal .modal-sub{font-size:12px;color:var(--text-secondary);margin-bottom:24px}
+.modal .close-btn{position:absolute;top:16px;right:16px;background:none;border:none;color:var(--text-tertiary);font-size:16px;cursor:pointer;padding:4px}
+.modal .close-btn:hover{color:var(--text-primary)}
+.modal .form-group{margin-bottom:16px}
+.modal .form-group label{display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em}
+.modal .form-group input,.modal .form-group select{width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:10px;background:var(--bg-input);color:var(--text-primary);font-size:13px;outline:none;transition:border-color .2s}
+.modal .form-group input:focus,.modal .form-group select:focus{border-color:var(--accent)}
+.modal .form-group input::placeholder{color:var(--text-tertiary)}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:24px}
+.modal-actions .btn{padding:10px 20px;border-radius:10px;font-size:13px}
+.modal-actions .btn-cancel{background:transparent;border:1px solid var(--border);color:var(--text-secondary)}
+.modal-actions .btn-cancel:hover{border-color:var(--border-strong);color:var(--text-primary)}
+.modal-actions .btn-send{background:var(--accent);border:1px solid var(--accent);color:#fff}
+.modal-actions .btn-send:hover{background:var(--accent-hover)}
+.modal-actions .btn-send:disabled{background:var(--border);border-color:var(--border);color:var(--text-tertiary);cursor:not-allowed}
+
+/* Bulk Invite Styles */
+.bulk-steps{display:flex;gap:4px;margin-bottom:24px}
+.bulk-step{flex:1;text-align:center;padding:8px;border-radius:8px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-tertiary);background:var(--bg-secondary);transition:all .2s}
+.bulk-step.active{background:var(--accent-bg);color:var(--accent);border:1px solid var(--accent-border)}
+.bulk-step.done{background:var(--success-bg);color:var(--success)}
+.bulk-view{display:none}
+.bulk-view.show{display:block}
+.drop-zone{border:2px dashed var(--border);border-radius:16px;padding:40px 24px;text-align:center;cursor:pointer;transition:all .2s;background:var(--bg-secondary)}
+.drop-zone:hover,.drop-zone.drag-over{border-color:var(--accent);background:var(--accent-bg)}
+.drop-zone i{font-size:32px;color:var(--text-tertiary);margin-bottom:12px}
+.drop-zone.drag-over i{color:var(--accent)}
+.drop-zone p{font-size:13px;color:var(--text-secondary);margin-bottom:4px}
+.drop-zone small{font-size:11px;color:var(--text-tertiary)}
+.dl-template{display:inline-flex;align-items:center;gap:6px;color:var(--text-link);font-size:12px;font-weight:600;cursor:pointer;margin-top:16px;text-decoration:none}
+.dl-template:hover{text-decoration:underline}
+.preview-summary{display:flex;gap:12px;margin-bottom:14px;align-items:center;flex-wrap:wrap}
+.preview-count{font-size:12px;font-weight:600;padding:4px 10px;border-radius:100px}
+.count-valid{background:var(--success-bg);color:var(--success)}
+.count-invalid{background:var(--danger-bg);color:var(--danger)}
+.preview-table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:14px}
+.preview-table th{background:var(--table-header-bg);padding:7px 10px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-tertiary);font-weight:700;border-bottom:2px solid var(--border)}
+.preview-table td{padding:7px 10px;border-bottom:1px solid var(--border-subtle)}
+.preview-table tr.row-invalid td{background:var(--danger-bg)}
+.preview-table .row-error{font-size:10px;color:var(--danger);font-weight:600}
+.preview-wrap{max-height:300px;overflow-y:auto;border:1px solid var(--border);border-radius:10px}
+.progress-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border-subtle);font-size:12px}
+.progress-row:last-child{border-bottom:none}
+.progress-icon{width:20px;text-align:center;font-size:14px}
+.progress-email{flex:1;font-weight:600}
+.progress-status{font-size:11px;font-weight:600}
+.progress-status.ok{color:var(--success)}
+.progress-status.fail{color:var(--danger)}
+.progress-status.pending{color:var(--text-tertiary)}
+.progress-wrap{max-height:350px;overflow-y:auto;padding:0 4px}
+.progress-bar-wrap{height:6px;background:var(--bg-secondary);border-radius:100px;margin-bottom:16px;overflow:hidden}
+.progress-bar-fill{height:100%;background:var(--accent);border-radius:100px;transition:width .3s}
+.progress-summary{text-align:center;padding:16px;font-size:13px;font-weight:600;border-radius:10px;margin-bottom:14px}
+.progress-summary.all-ok{background:var(--success-bg);color:var(--success)}
+.progress-summary.has-errors{background:var(--warning-bg);color:var(--warning)}
+
+.toast{position:fixed;bottom:16px;right:16px;padding:10px 18px;border-radius:10px;font-size:12px;font-weight:600;display:none;align-items:center;gap:8px;z-index:300;box-shadow:0 8px 24px rgba(0,0,0,.3)}
+.toast-success{background:var(--success);color:#fff}
+.toast-error{background:var(--danger);color:#fff}
+.toast-info{background:var(--accent);color:#fff}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="header-left">
+    <a href="/"><i class="fa-solid fa-arrow-left"></i> Back</a>
+    <h1><i class="fa-solid fa-shield-halved"></i> User Management</h1>
+  </div>
+  <div class="header-right">
+    <button class="btn btn-invite" onclick="openInviteModal()"><i class="fa-solid fa-user-plus"></i> Invite User</button>
+    <button class="btn btn-bulk" onclick="openBulkModal()"><i class="fa-solid fa-users"></i> Bulk Invite</button>
+    <span id="admin-theme-slot"></span>
+    <button class="btn" onclick="loadUsers()"><i class="fa-solid fa-rotate"></i> Refresh</button>
+    <button class="btn" onclick="AuthGuard.logout()"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+  </div>
+</div>
+<div class="stats" id="stats"></div>
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>User</th><th>Role</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead>
+    <tbody id="users-body"><tr><td colspan="5" class="loading"><div class="spinner"></div>Loading users...</td></tr></tbody>
+  </table>
+</div>
+
+<!-- Single Invite Modal -->
+<div class="modal-overlay" id="invite-modal">
+  <div class="modal">
+    <button class="close-btn" onclick="closeInviteModal()"><i class="fa-solid fa-xmark"></i></button>
+    <h2><i class="fa-solid fa-user-plus" style="color:#6366f1;font-size:16px;margin-right:6px"></i> Invite User</h2>
+    <p class="modal-sub">Send an invitation with a temporary password. The user will set their own password on first login.</p>
+    <div id="invite-alert"></div>
+    <form id="invite-form" onsubmit="return handleInvite(event)">
+      <div class="form-group">
+        <label for="invite-email">Email</label>
+        <input type="email" id="invite-email" placeholder="user@amazon.com" required>
+      </div>
+      <div class="form-group">
+        <label for="invite-name">Name</label>
+        <input type="text" id="invite-name" placeholder="Full name" required>
+      </div>
+      <div class="form-group">
+        <label for="invite-role">Role</label>
+        <select id="invite-role">
+          <option value="member">Member &mdash; View only</option>
+          <option value="admin">Admin &mdash; Can edit schedules & extensions</option>
+          <option value="super_admin">Super Admin &mdash; Full access + user management</option>
+        </select>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-cancel" onclick="closeInviteModal()">Cancel</button>
+        <button type="submit" class="btn btn-send" id="invite-btn">
+          <span id="invite-text"><i class="fa-solid fa-paper-plane"></i> Send Invitation</span>
+          <span id="invite-spinner" style="display:none"><span class="spinner" style="width:14px;height:14px;border-width:2px;display:inline-block;vertical-align:middle"></span> Sending...</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Bulk Invite Modal -->
+<div class="modal-overlay" id="bulk-modal">
+  <div class="modal modal-wide">
+    <button class="close-btn" onclick="closeBulkModal()"><i class="fa-solid fa-xmark"></i></button>
+    <h2><i class="fa-solid fa-users" style="color:#6366f1;font-size:16px;margin-right:6px"></i> Bulk Invite</h2>
+    <p class="modal-sub">Upload a CSV file to invite multiple users at once.</p>
+    <div class="bulk-steps">
+      <div class="bulk-step active" id="step-1-tab"><i class="fa-solid fa-upload"></i> Upload</div>
+      <div class="bulk-step" id="step-2-tab"><i class="fa-solid fa-table"></i> Preview</div>
+      <div class="bulk-step" id="step-3-tab"><i class="fa-solid fa-paper-plane"></i> Send</div>
+    </div>
+
+    <!-- Step 1: Upload -->
+    <div class="bulk-view show" id="step-1">
+      <div class="drop-zone" id="drop-zone">
+        <i class="fa-solid fa-cloud-arrow-up"></i>
+        <p>Drag & drop a CSV file here</p>
+        <small>or click to browse &middot; .csv only</small>
+        <input type="file" id="csv-input" accept=".csv" style="display:none">
+      </div>
+      <div style="text-align:center">
+        <a class="dl-template" onclick="downloadTemplate()"><i class="fa-solid fa-download"></i> Download CSV template</a>
+      </div>
+      <div style="margin-top:16px;padding:14px;border-radius:10px;background:var(--bg-secondary);font-size:11px;color:var(--text-secondary);line-height:1.7">
+        <strong style="color:var(--text-primary)">CSV Format:</strong><br>
+        <code style="background:var(--bg-code);padding:2px 6px;border-radius:4px;font-size:11px">email,name,role</code><br>
+        &bull; <strong>email</strong> &mdash; required (e.g. user@amazon.com)<br>
+        &bull; <strong>name</strong> &mdash; required (full name)<br>
+        &bull; <strong>role</strong> &mdash; optional: <code style="background:var(--bg-code);padding:1px 4px;border-radius:3px;font-size:10px">member</code> (default), <code style="background:var(--bg-code);padding:1px 4px;border-radius:3px;font-size:10px">admin</code>, or <code style="background:var(--bg-code);padding:1px 4px;border-radius:3px;font-size:10px">super_admin</code>
+      </div>
+    </div>
+
+    <!-- Step 2: Preview -->
+    <div class="bulk-view" id="step-2">
+      <div class="preview-summary" id="preview-summary"></div>
+      <div class="preview-wrap">
+        <table class="preview-table">
+          <thead><tr><th>#</th><th>Email</th><th>Name</th><th>Role</th><th>Status</th></tr></thead>
+          <tbody id="preview-body"></tbody>
+        </table>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-cancel" onclick="bulkGoStep(1)"><i class="fa-solid fa-arrow-left"></i> Back</button>
+        <button type="button" class="btn" id="remove-invalid-btn" style="display:none;color:var(--danger);border-color:var(--danger)" onclick="removeInvalid()"><i class="fa-solid fa-filter-circle-xmark"></i> Remove Invalid</button>
+        <button type="button" class="btn btn-send" id="bulk-send-btn" onclick="startBulkSend()"><i class="fa-solid fa-paper-plane"></i> Send All Invitations</button>
+      </div>
+    </div>
+
+    <!-- Step 3: Progress -->
+    <div class="bulk-view" id="step-3">
+      <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progress-bar" style="width:0%"></div></div>
+      <div id="progress-summary" style="display:none"></div>
+      <div class="progress-wrap" id="progress-list"></div>
+      <div class="modal-actions" id="progress-actions" style="display:none">
+        <button type="button" class="btn btn-send" onclick="closeBulkModal();loadUsers()"><i class="fa-solid fa-check"></i> Done</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"><i class="fa-solid fa-circle-check"></i> <span id="toast-msg"></span></div>
+
+<script>
+var API = AUTH_CONFIG.ApiUrl;
+var users = [];
+var bulkRows = [];       // parsed CSV rows: { email, name, role, valid, error }
+var bulkValidRows = [];  // only valid rows
+
+if (typeof ThemeManager !== 'undefined') ThemeManager.injectToggle('admin-theme-slot');
+
+AuthGuard.onReady(function() {
+  if (!AuthGuard.requireRole('super_admin')) return;
+  loadUsers();
+});
+
+// ============ Toast ============
+function showToast(msg, type) {
+  var t = document.getElementById('toast');
+  t.className = 'toast toast-' + (type || 'success');
+  document.getElementById('toast-msg').textContent = msg;
+  t.style.display = 'flex';
+  setTimeout(function() { t.style.display = 'none'; }, 3500);
+}
+
+// ============ Single Invite ============
+function openInviteModal() {
+  document.getElementById('invite-modal').classList.add('show');
+  document.getElementById('invite-email').focus();
+  document.getElementById('invite-alert').innerHTML = '';
+}
+function closeInviteModal() {
+  document.getElementById('invite-modal').classList.remove('show');
+  document.getElementById('invite-form').reset();
+  document.getElementById('invite-alert').innerHTML = '';
+}
+function handleInvite(e) {
+  e.preventDefault();
+  var email = document.getElementById('invite-email').value.trim();
+  var name = document.getElementById('invite-name').value.trim();
+  var role = document.getElementById('invite-role').value;
+  if (!email || !name) return false;
+  document.getElementById('invite-text').style.display = 'none';
+  document.getElementById('invite-spinner').style.display = '';
+  document.getElementById('invite-btn').disabled = true;
+  AuthGuard.authFetch(API + '/admin/users/invite', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: email, name: name, role: role })
+  }).then(function(r) { return r.json(); })
+    .then(function(data) {
+      document.getElementById('invite-text').style.display = '';
+      document.getElementById('invite-spinner').style.display = 'none';
+      document.getElementById('invite-btn').disabled = false;
+      if (data.success) {
+        closeInviteModal();
+        showToast('Invitation sent to ' + email, 'success');
+        loadUsers();
+      } else {
+        document.getElementById('invite-alert').innerHTML =
+          '<div style="padding:10px 14px;border-radius:8px;font-size:12px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2);color:#ef4444;margin-bottom:12px">' +
+          '<i class="fa-solid fa-circle-exclamation" style="margin-right:6px"></i>' + (data.error || 'Failed to invite user') + '</div>';
+      }
+    })
+    .catch(function(err) {
+      document.getElementById('invite-text').style.display = '';
+      document.getElementById('invite-spinner').style.display = 'none';
+      document.getElementById('invite-btn').disabled = false;
+      document.getElementById('invite-alert').innerHTML =
+        '<div style="padding:10px 14px;border-radius:8px;font-size:12px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2);color:#ef4444;margin-bottom:12px">' +
+        '<i class="fa-solid fa-circle-exclamation" style="margin-right:6px"></i>' + err.message + '</div>';
+    });
+  return false;
+}
+
+// ============ Bulk Invite ============
+function openBulkModal() {
+  document.getElementById('bulk-modal').classList.add('show');
+  bulkGoStep(1);
+  bulkRows = [];
+  bulkValidRows = [];
+  document.getElementById('csv-input').value = '';
+}
+function closeBulkModal() {
+  document.getElementById('bulk-modal').classList.remove('show');
+  bulkRows = [];
+  bulkValidRows = [];
+}
+
+function bulkGoStep(n) {
+  for (var i = 1; i <= 3; i++) {
+    document.getElementById('step-' + i).classList.toggle('show', i === n);
+    var tab = document.getElementById('step-' + i + '-tab');
+    tab.classList.remove('active', 'done');
+    if (i < n) tab.classList.add('done');
+    else if (i === n) tab.classList.add('active');
+  }
+}
+
+// Drop zone events
+(function() {
+  var dz = document.getElementById('drop-zone');
+  var fi = document.getElementById('csv-input');
+  dz.addEventListener('click', function() { fi.click(); });
+  dz.addEventListener('dragover', function(e) { e.preventDefault(); dz.classList.add('drag-over'); });
+  dz.addEventListener('dragleave', function() { dz.classList.remove('drag-over'); });
+  dz.addEventListener('drop', function(e) {
+    e.preventDefault();
+    dz.classList.remove('drag-over');
+    var files = e.dataTransfer.files;
+    if (files.length > 0) handleCSVFile(files[0]);
+  });
+  fi.addEventListener('change', function() {
+    if (fi.files.length > 0) handleCSVFile(fi.files[0]);
+  });
+})();
+
+function downloadTemplate() {
+  var csv = 'email,name,role\nuser1@amazon.com,First Last,member\nuser2@amazon.com,First Last,admin\n';
+  var blob = new Blob([csv], { type: 'text/csv' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'bulk_invite_template.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function handleCSVFile(file) {
+  if (!file.name.toLowerCase().endsWith('.csv')) {
+    showToast('Please upload a .csv file', 'error');
+    return;
+  }
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    parseCSV(e.target.result);
+  };
+  reader.readAsText(file);
+}
+
+function parseCSV(text) {
+  var lines = text.split(/\r?\n/).filter(function(l) { return l.trim() !== ''; });
+  if (lines.length < 2) {
+    showToast('CSV must have a header row and at least one data row', 'error');
+    return;
+  }
+  // Parse header (case-insensitive)
+  var header = lines[0].split(',').map(function(h) { return h.trim().toLowerCase().replace(/^["']|["']$/g, ''); });
+  var emailIdx = header.indexOf('email');
+  var nameIdx = header.indexOf('name');
+  var roleIdx = header.indexOf('role');
+
+  if (emailIdx === -1) {
+    showToast('CSV must have an "email" column', 'error');
+    return;
+  }
+  if (nameIdx === -1) {
+    showToast('CSV must have a "name" column', 'error');
+    return;
+  }
+
+  bulkRows = [];
+  var validRoles = ['member', 'admin', 'super_admin'];
+  var emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  for (var i = 1; i < lines.length; i++) {
+    var cols = parseCSVLine(lines[i]);
+    var email = (cols[emailIdx] || '').trim();
+    var name = (cols[nameIdx] || '').trim();
+    var role = roleIdx >= 0 ? (cols[roleIdx] || '').trim().toLowerCase() : 'member';
+    if (!role) role = 'member';
+
+    var valid = true;
+    var error = '';
+    if (!email) { valid = false; error = 'Email is required'; }
+    else if (!emailRe.test(email)) { valid = false; error = 'Invalid email format'; }
+    if (!name) { valid = false; error = error ? error + '; Name is required' : 'Name is required'; }
+    if (role && validRoles.indexOf(role) === -1) { valid = false; error = error ? error + '; Invalid role' : 'Invalid role "' + role + '"'; }
+
+    // Check duplicates within file
+    for (var j = 0; j < bulkRows.length; j++) {
+      if (bulkRows[j].email.toLowerCase() === email.toLowerCase() && email) {
+        valid = false;
+        error = error ? error + '; Duplicate email' : 'Duplicate email in CSV';
+        break;
+      }
+    }
+
+    bulkRows.push({ email: email, name: name, role: role || 'member', valid: valid, error: error });
+  }
+
+  renderPreview();
+  bulkGoStep(2);
+}
+
+// Handle quoted CSV fields properly
+function parseCSVLine(line) {
+  var result = [];
+  var current = '';
+  var inQuotes = false;
+  for (var i = 0; i < line.length; i++) {
+    var c = line[i];
+    if (inQuotes) {
+      if (c === '"' && line[i + 1] === '"') { current += '"'; i++; }
+      else if (c === '"') { inQuotes = false; }
+      else { current += c; }
+    } else {
+      if (c === '"') { inQuotes = true; }
+      else if (c === ',') { result.push(current); current = ''; }
+      else { current += c; }
+    }
+  }
+  result.push(current);
+  return result;
+}
+
+function renderPreview() {
+  bulkValidRows = bulkRows.filter(function(r) { return r.valid; });
+  var invalidCount = bulkRows.length - bulkValidRows.length;
+
+  var summaryHtml = '<span class="preview-count count-valid"><i class="fa-solid fa-circle-check" style="margin-right:4px"></i>' + bulkValidRows.length + ' valid</span>';
+  if (invalidCount > 0) {
+    summaryHtml += '<span class="preview-count count-invalid"><i class="fa-solid fa-circle-xmark" style="margin-right:4px"></i>' + invalidCount + ' invalid</span>';
+  }
+  summaryHtml += '<span style="font-size:11px;color:var(--text-tertiary)">' + bulkRows.length + ' total rows</span>';
+  document.getElementById('preview-summary').innerHTML = summaryHtml;
+
+  var html = '';
+  bulkRows.forEach(function(r, idx) {
+    var cls = r.valid ? '' : ' class="row-invalid"';
+    html += '<tr' + cls + '>'
+      + '<td>' + (idx + 1) + '</td>'
+      + '<td>' + escHtml(r.email) + '</td>'
+      + '<td>' + escHtml(r.name) + '</td>'
+      + '<td>' + escHtml(r.role) + '</td>'
+      + '<td>' + (r.valid ? '<span style="color:var(--success)"><i class="fa-solid fa-circle-check"></i> Valid</span>' : '<span class="row-error"><i class="fa-solid fa-circle-xmark"></i> ' + escHtml(r.error) + '</span>') + '</td>'
+      + '</tr>';
+  });
+  document.getElementById('preview-body').innerHTML = html;
+
+  document.getElementById('remove-invalid-btn').style.display = invalidCount > 0 ? '' : 'none';
+  document.getElementById('bulk-send-btn').disabled = bulkValidRows.length === 0;
+  document.getElementById('bulk-send-btn').innerHTML = '<i class="fa-solid fa-paper-plane"></i> Send ' + bulkValidRows.length + ' Invitation' + (bulkValidRows.length === 1 ? '' : 's');
+}
+
+function removeInvalid() {
+  bulkRows = bulkRows.filter(function(r) { return r.valid; });
+  renderPreview();
+  showToast('Invalid rows removed', 'info');
+}
+
+function escHtml(s) {
+  var d = document.createElement('div');
+  d.textContent = s || '';
+  return d.innerHTML;
+}
+
+// ============ Bulk Send (Step 3) ============
+function startBulkSend() {
+  if (bulkValidRows.length === 0) return;
+  if (bulkValidRows.length > 50) {
+    showToast('Maximum 50 users per batch. Please split your CSV.', 'error');
+    return;
+  }
+
+  bulkGoStep(3);
+  document.getElementById('progress-bar').style.width = '0%';
+  document.getElementById('progress-summary').style.display = 'none';
+  document.getElementById('progress-actions').style.display = 'none';
+
+  // Build progress rows
+  var html = '';
+  bulkValidRows.forEach(function(r, idx) {
+    html += '<div class="progress-row" id="prog-' + idx + '">'
+      + '<div class="progress-icon" id="prog-icon-' + idx + '"><i class="fa-solid fa-circle" style="color:var(--text-tertiary);font-size:8px"></i></div>'
+      + '<div class="progress-email">' + escHtml(r.email) + '</div>'
+      + '<div class="progress-status pending" id="prog-status-' + idx + '">Waiting...</div>'
+      + '</div>';
+  });
+  document.getElementById('progress-list').innerHTML = html;
+
+  // Send invitations sequentially
+  sendNext(0, 0, 0);
+}
+
+function sendNext(idx, successCount, failCount) {
+  if (idx >= bulkValidRows.length) {
+    // Done!
+    document.getElementById('progress-bar').style.width = '100%';
+    var total = bulkValidRows.length;
+    var sumEl = document.getElementById('progress-summary');
+    sumEl.style.display = '';
+    if (failCount === 0) {
+      sumEl.className = 'progress-summary all-ok';
+      sumEl.innerHTML = '<i class="fa-solid fa-circle-check" style="margin-right:6px"></i>All ' + successCount + ' invitation' + (successCount === 1 ? '' : 's') + ' sent successfully!';
+    } else {
+      sumEl.className = 'progress-summary has-errors';
+      sumEl.innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="margin-right:6px"></i>' + successCount + ' sent, ' + failCount + ' failed out of ' + total;
+    }
+    document.getElementById('progress-actions').style.display = '';
+    return;
+  }
+
+  var r = bulkValidRows[idx];
+  var pct = Math.round(((idx) / bulkValidRows.length) * 100);
+  document.getElementById('progress-bar').style.width = pct + '%';
+
+  // Mark current as sending
+  document.getElementById('prog-icon-' + idx).innerHTML = '<span class="spinner" style="width:14px;height:14px;border-width:2px;display:inline-block"></span>';
+  document.getElementById('prog-status-' + idx).textContent = 'Sending...';
+  document.getElementById('prog-status-' + idx).className = 'progress-status pending';
+
+  AuthGuard.authFetch(API + '/admin/users/invite', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: r.email, name: r.name, role: r.role })
+  }).then(function(resp) { return resp.json(); })
+    .then(function(data) {
+      if (data.success) {
+        document.getElementById('prog-icon-' + idx).innerHTML = '<i class="fa-solid fa-circle-check" style="color:var(--success)"></i>';
+        document.getElementById('prog-status-' + idx).textContent = 'Invited';
+        document.getElementById('prog-status-' + idx).className = 'progress-status ok';
+        sendNext(idx + 1, successCount + 1, failCount);
+      } else {
+        document.getElementById('prog-icon-' + idx).innerHTML = '<i class="fa-solid fa-circle-xmark" style="color:var(--danger)"></i>';
+        document.getElementById('prog-status-' + idx).textContent = data.error || 'Failed';
+        document.getElementById('prog-status-' + idx).className = 'progress-status fail';
+        sendNext(idx + 1, successCount, failCount + 1);
+      }
+    })
+    .catch(function(err) {
+      document.getElementById('prog-icon-' + idx).innerHTML = '<i class="fa-solid fa-circle-xmark" style="color:var(--danger)"></i>';
+      document.getElementById('prog-status-' + idx).textContent = err.message || 'Network error';
+      document.getElementById('prog-status-' + idx).className = 'progress-status fail';
+      sendNext(idx + 1, successCount, failCount + 1);
+    });
+}
+
+// ============ User Management ============
+function loadUsers() {
+  document.getElementById('users-body').innerHTML = '<tr><td colspan="5" class="loading"><div class="spinner"></div>Loading users...</td></tr>';
+  AuthGuard.authFetch(API + '/admin/users')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      users = data.data || data.users || [];
+      renderUsers();
+      renderStats();
+    })
+    .catch(function(err) {
+      document.getElementById('users-body').innerHTML = '<tr><td colspan="5" class="empty"><i class="fa-solid fa-circle-exclamation" style="color:#ef4444;margin-right:4px"></i>Failed to load users: ' + err.message + '</td></tr>';
+    });
+}
+
+function renderStats() {
+  var total = users.length;
+  var admins = users.filter(function(u) { return u.role === 'super_admin' || u.role === 'admin'; }).length;
+  var enabled = users.filter(function(u) { return u.enabled !== false; }).length;
+  var pending = users.filter(function(u) { return u.status === 'FORCE_CHANGE_PASSWORD'; }).length;
+  document.getElementById('stats').innerHTML = ''
+    + '<div class="stat"><div><div class="stat-num" style="color:#6366f1">' + total + '</div><div class="stat-label">Total Users</div></div></div>'
+    + '<div class="stat"><div><div class="stat-num" style="color:#f59e0b">' + admins + '</div><div class="stat-label">Admins</div></div></div>'
+    + '<div class="stat"><div><div class="stat-num" style="color:#22c55e">' + enabled + '</div><div class="stat-label">Active</div></div></div>'
+    + (pending > 0 ? '<div class="stat"><div><div class="stat-num" style="color:#f59e0b">' + pending + '</div><div class="stat-label">Pending Setup</div></div></div>' : '');
+}
+
+function renderUsers() {
+  if (users.length === 0) {
+    document.getElementById('users-body').innerHTML = '<tr><td colspan="5" class="empty"><i class="fa-solid fa-users" style="margin-right:6px;color:#334155"></i>No users yet. Click <b>Invite User</b> to add your first team member.</td></tr>';
+    return;
+  }
+  var html = '';
+  users.forEach(function(u) {
+    var initial = ((u.name || u.email || '?')[0] || '?').toUpperCase();
+    var isEnabled = u.enabled !== false;
+    var isPending = u.status === 'FORCE_CHANGE_PASSWORD';
+    var statusClass, statusText;
+    if (isPending) { statusClass = 'status-pending'; statusText = 'Pending Setup'; }
+    else if (isEnabled) { statusClass = 'status-enabled'; statusText = 'Active'; }
+    else { statusClass = 'status-disabled'; statusText = 'Disabled'; }
+    var created = u.created ? new Date(u.created).toLocaleDateString() : '-';
+    var safeEmail = u.email.replace(/'/g, "\\'");
+    html += '<tr>'
+      + '<td><div class="user-cell"><div class="user-avatar">' + initial + '</div><div><div class="user-name">' + (u.name || '-') + '</div><div class="user-email">' + (u.email || '-') + '</div></div></div></td>'
+      + '<td><select class="role-select" onchange="changeRole(\'' + safeEmail + '\', this.value)">'
+      + '<option value="member"' + (u.role === 'member' ? ' selected' : '') + '>Member</option>'
+      + '<option value="admin"' + (u.role === 'admin' ? ' selected' : '') + '>Admin</option>'
+      + '<option value="super_admin"' + (u.role === 'super_admin' ? ' selected' : '') + '>Super Admin</option>'
+      + '</select></td>'
+      + '<td><span class="status-badge ' + statusClass + '">' + statusText + '</span></td>'
+      + '<td style="font-size:12px;color:#64748b">' + created + '</td>'
+      + '<td>'
+      + (isEnabled
+        ? '<button class="action-btn action-disable" onclick="toggleUser(\'' + safeEmail + '\', false)"><i class="fa-solid fa-ban"></i> Disable</button>'
+        : '<button class="action-btn action-enable" onclick="toggleUser(\'' + safeEmail + '\', true)"><i class="fa-solid fa-check"></i> Enable</button>')
+      + ' <button class="action-btn action-delete" onclick="deleteUser(\'' + safeEmail + '\')"><i class="fa-solid fa-trash"></i></button>'
+      + '</td></tr>';
+  });
+  document.getElementById('users-body').innerHTML = html;
+}
+
+function changeRole(email, role) {
+  AuthGuard.authFetch(API + '/admin/users/' + encodeURIComponent(email) + '/role', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ role: role })
+  }).then(function(r) {
+    if (r.ok) { showToast('Role updated to ' + role); loadUsers(); }
+    else r.json().then(function(d) { showToast(d.error || 'Failed', 'error'); });
+  }).catch(function(e) { showToast(e.message, 'error'); });
+}
+
+function toggleUser(email, enable) {
+  var action = enable ? 'enable' : 'disable';
+  if (!confirm((enable ? 'Enable' : 'Disable') + ' user ' + email + '?')) return;
+  AuthGuard.authFetch(API + '/admin/users/' + encodeURIComponent(email) + '/' + action, { method: 'PUT' })
+    .then(function(r) {
+      if (r.ok) { showToast('User ' + (enable ? 'enabled' : 'disabled')); loadUsers(); }
+      else r.json().then(function(d) { showToast(d.error || 'Failed', 'error'); });
+    }).catch(function(e) { showToast(e.message, 'error'); });
+}
+
+function deleteUser(email) {
+  if (!confirm('Permanently delete ' + email + '? This cannot be undone.')) return;
+  AuthGuard.authFetch(API + '/admin/users/' + encodeURIComponent(email), { method: 'DELETE' })
+    .then(function(r) {
+      if (r.ok) { showToast('User deleted'); loadUsers(); }
+      else r.json().then(function(d) { showToast(d.error || 'Failed', 'error'); });
+    }).catch(function(e) { showToast(e.message, 'error'); });
+}
+</script>
+</body>
+</html>

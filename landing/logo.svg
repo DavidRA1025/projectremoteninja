@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6366f1"/>
+      <stop offset="100%" style="stop-color:#8b5cf6"/>
+    </linearGradient>
+    <linearGradient id="mask" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1e1b4b"/>
+      <stop offset="100%" style="stop-color:#312e81"/>
+    </linearGradient>
+  </defs>
+  <!-- Background circle -->
+  <circle cx="100" cy="100" r="96" fill="url(#bg)"/>
+  <!-- Ninja head -->
+  <circle cx="100" cy="95" r="52" fill="url(#mask)"/>
+  <!-- Ninja mask band (headband) -->
+  <rect x="42" y="78" width="116" height="22" rx="8" fill="#4f46e5"/>
+  <!-- Headband tails flowing right -->
+  <path d="M 155 82 Q 175 75 185 88 Q 178 92 158 96" fill="#4f46e5" opacity="0.9"/>
+  <path d="M 155 86 Q 178 82 190 98 Q 180 100 158 100" fill="#4338ca" opacity="0.8"/>
+  <!-- Eyes (glowing) -->
+  <ellipse cx="80" cy="89" rx="12" ry="8" fill="#e0e7ff"/>
+  <ellipse cx="120" cy="89" rx="12" ry="8" fill="#e0e7ff"/>
+  <!-- Pupils -->
+  <ellipse cx="83" cy="89" rx="5" ry="5" fill="#1e1b4b"/>
+  <ellipse cx="123" cy="89" rx="5" ry="5" fill="#1e1b4b"/>
+  <!-- Eye shine -->
+  <circle cx="85" cy="87" r="2" fill="#fff" opacity="0.8"/>
+  <circle cx="125" cy="87" r="2" fill="#fff" opacity="0.8"/>
+  <!-- Shuriken (throwing star) accent -->
+  <g transform="translate(155, 45) rotate(15)" opacity="0.6">
+    <polygon points="0,-12 3,-3 12,0 3,3 0,12 -3,3 -12,0 -3,-3" fill="#c7d2fe"/>
+  </g>
+  <!-- Text: RN -->
+  <text x="100" y="150" text-anchor="middle" font-family="system-ui,sans-serif" font-size="28" font-weight="800" fill="#e0e7ff" letter-spacing="2">REMOTE</text>
+  <text x="100" y="175" text-anchor="middle" font-family="system-ui,sans-serif" font-size="22" font-weight="700" fill="#a5b4fc" letter-spacing="6">NINJA</text>
+</svg>
